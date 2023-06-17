@@ -1,0 +1,22 @@
+<p>Hi #FIRSTNAME#,</p>
+<p>Recently you became active within GEWIS.  Since you are now an active member of GEWIS, we have created a "member account" for you that you can use for a lot of GEWIS systems. Among other things, with this account you can sign in to the computers in the room, get access to your own @gewis.nl email, can use our private Overleaf and store your files. <br />On <a href="https://wiki.gewis.nl/link/315">https://wiki.gewis.nl/link/315</a> you can find all the systems that you can use with this account.</p>
+<p><strong>What are my credentials?<br /></strong>In the table below, you will find the default credentials for your account. Please change your password on <a href="https://sspr.gewis.nl">https://sspr.gewis.nl </a>first.</p>
+<table style="border-collapse: collapse; width: 100%;" border="1">
+    <colgroup>
+        <col style="width: 50%;" />
+        <col style="width: 50;" />
+    </colgroup>
+    <tbody>
+        <tr>
+            <td>Username</td>
+            <td>#USERNAME#</td>
+        </tr>
+        <tr>
+            <td>Password</td>
+            <td>#PASSWORD#</td>
+        </tr>
+    </tbody>
+</table>
+<p><strong>Will I keep this account forever?</strong><br />With a few exceptions, you will lose access to this account once you are no longer an active member. This means that you must backup all your personal files from your account before your account is deactivated.</p>
+<p><strong>Still have any questions?<br /></strong>
+The CBC manages all digital infrastructure of GEWIS and is always willing to help you. If you have a question or problem with the digital services of GEWIS, feel free to reply to this email or create a ticket on <a href="https://support.gewis.nl">https://support.gewis.nl</a>.</p>
