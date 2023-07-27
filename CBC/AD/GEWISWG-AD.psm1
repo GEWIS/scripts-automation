@@ -119,6 +119,11 @@ function New-GEWISWGMemberAccount {
 	$password = Get-Password
 	$expiryDate = Get-ExpiryDate
 
+	$existingAccount = Get-ADUser $username -ErrorAction Ignore
+	if ($existingAccount -ne $null) {
+		$existingAccount | Set-ADUser -Enabled $True
+		$password = "Previously set by user"
+	} else {
 	New-ADUser -AllowReversiblePasswordEncryption $False `
 		-CannotChangePassword $False `
 		-ChangePasswordAtLogon $False `
@@ -136,6 +141,7 @@ function New-GEWISWGMemberAccount {
 		-Path "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl" `
 		-AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
 		-AccountExpirationDate $expiryDate.AddSeconds(1) # We expire 1 second after our last validity date
+	}
 
 	# Add to Mailcow Mailbox
 	Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-2713"
@@ -152,6 +158,35 @@ function New-GEWISWGMemberAccount {
 	$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#PASSWORD#', $password
 
 	Send-GEWISMail -message $message -to $personalEmail -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
+	Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to "Computer Beheer Commissie <cbc@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
 
 }
 Export-ModuleMember -Function New-GEWISWGMemberAccount
+
+function New-GEWISWGOrganMember {
+	param(
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $organName,
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $member
+	)
+	# If this exists in AD, we use this
+	$organ = Get-GEWISWGOrgan ($organName + " (active members)")
+	if ($organ -eq $null) {$organ = Get-GEWISWGOrgan $organName}
+	if ($organ -eq $null) { return} 
+
+	Add-ADGroupMember -Members $member -Server $server -Identity $organ.SID
+}
+Export-ModuleMember -Function New-GEWISWGOrganMember
+
+function Remove-GEWISWGOrganMember {
+	param(
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $organName,
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $member
+	)
+	# If this exists in AD, we use this
+	$organ = Get-GEWISWGOrgan ($organName + " (active members)")
+	if ($organ -eq $null) {$organ = Get-GEWISWGOrgan $organName}
+	if ($organ -eq $null) { return} 
+
+	Remove-ADGroupMember -Members $member -Server $server -Identity $organ.SID
+}
+Export-ModuleMember -Function Remove-GEWISWGOrganMember
