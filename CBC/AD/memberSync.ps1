@@ -1,14 +1,8 @@
-#Requires -RunAsAdministrator
+$results = ""
 
 #Requires -Modules GEWISWG-AD
 #Requires -Modules GEWIS-Mail
 #Requires -Modules GEWISDB-PS
-
-Remove-Module GEWISWG-AD; Import-Module .\GEWISWG-AD.psm1 -DisableNameChecking
-Remove-Module GEWIS-Mail; Import-Module ..\Mail\GEWIS-Mail.psm1
-Remove-Module GEWISDB-PS; Import-Module ..\..\ABC-Database\GEWISDB-PS.psm1
-
-$results = ""
 
 $usersDB = Get-GEWISDBActiveMembers -includeInactive $True
 $usersDBNr = $usersDB.lidnr

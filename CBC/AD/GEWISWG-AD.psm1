@@ -124,23 +124,23 @@ function New-GEWISWGMemberAccount {
 		$existingAccount | Set-ADUser -Enabled $True
 		$password = "Previously set by user"
 	} else {
-	New-ADUser -AllowReversiblePasswordEncryption $False `
-		-CannotChangePassword $False `
-		-ChangePasswordAtLogon $False `
-		-DisplayName "$firstName $lastName" `
-		-EmailAddress "$username@gewis.nl" `
-		-EmployeeNumber $membershipNumber `
-		-GivenName $firstName `
-		-Initials $initials `
-		-Name "$firstName $lastName ($username)" `
-		-SamAccountName $username `
-		-Surname $lastName `
-		-Server $server `
-		-UserPrincipalName "$username@gewiswg.gewis.nl" `
-		-Enabled $True `
-		-Path "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl" `
-		-AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
-		-AccountExpirationDate $expiryDate.AddSeconds(1) # We expire 1 second after our last validity date
+		New-ADUser -AllowReversiblePasswordEncryption $False `
+			-CannotChangePassword $False `
+			-ChangePasswordAtLogon $False `
+			-DisplayName "$firstName $lastName" `
+			-EmailAddress "$username@gewis.nl" `
+			-EmployeeNumber $membershipNumber `
+			-GivenName $firstName `
+			-Initials $initials `
+			-Name "$firstName $lastName ($username)" `
+			-SamAccountName $username `
+			-Surname $lastName `
+			-Server $server `
+			-UserPrincipalName "$username@gewiswg.gewis.nl" `
+			-Enabled $True `
+			-Path "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl" `
+			-AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
+			-AccountExpirationDate $expiryDate.AddSeconds(1) # We expire 1 second after our last validity date
 	}
 
 	# Add to Mailcow Mailbox
