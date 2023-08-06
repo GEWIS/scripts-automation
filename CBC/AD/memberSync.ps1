@@ -44,6 +44,14 @@ $newUsers | Foreach-Object {
     $results += ("<li>Creating user account and sending credentials for " + $user.lidnr + "</li>")
 }
 
+# We retrieve details for users known in AD but not active (anymore)
+$usersDBManual = $manualCheckUsers | Foreach-Object {
+    Get-GEWISDBMember $_ -ErrorAction SilentlyContinue
+}
+if ($usersDBManual.length -gt 0) {
+    $usersDB += $usersDBManual
+}
+
 $usersDB | Foreach-Object {
     $userDB = $_
     $userAD = $usersAD | Where-Object SamAccountName -eq ("m" + $userDB.lidnr)
