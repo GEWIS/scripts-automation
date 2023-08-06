@@ -50,6 +50,11 @@ $usersDB | Foreach-Object {
     if ($userAD -eq $null) {
         return
     }
+    $initials = $userDB.initials.subString(0, [System.Math]::Min(6, $userDB.initials.Length)) 
+    if ($initials -ne $userAD.initials) {
+        $userAD | Set-ADuser -Initials $initials
+        $results += ("<li>Updating initials for $($userDB.lidnr): $($userAD.initials) ==> ${initials}")
+    }
     if ($userDB.firstName -ne $userAD.GivenName) {
         $userAD | Set-ADuser -GivenName $userDB.firstName -DisplayName $userDB.fullName
         $userAD | Rename-ADObject -NewName "$($userDB.fullName) (m$($userDB.lidnr))"
@@ -60,11 +65,6 @@ $usersDB | Foreach-Object {
         $userAD | Set-ADuser -Surname $ln -DisplayName $userDB.fullName
         $userAD | Rename-ADObject -NewName "$($userDB.fullName) (m$($userDB.lidnr))"
         $results += ("<li>Updating surname for $($userDB.lidnr): $($userAD.Surname) ==> ${ln}")
-    }
-    $initials = $userDB.initials.subString(0, [System.Math]::Min(6, $userDB.initials.Length)) 
-    if ($initials -ne $userAD.initials) {
-        $userAD | Set-ADuser -Initials $initials
-        $results += ("<li>Updating initials for $($userDB.lidnr): $($userAD.initials) ==> ${initials}")
     }
 
     $userOrgansAD = @()
