@@ -5,6 +5,7 @@ Import-Module ..\..\General\specialChars.psm1
 # Global state
 $server = $null
 $organOU = "OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl"
+$memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
 $groupWithAllOrgans = "S-1-5-21-3053190190-970261712-1328217982-4970"
 $runDate = Get-Date -Format "yyyy-MM-dd HH:mm"
 
@@ -94,9 +95,9 @@ function Get-Password {
 	return $password
 }
 
-function Get-ExpiryDate {
+function Get-GEWISWGExpiryDate {
 	# Accounts expire on the last day of the month
-	$expiryDate = (Get-Date).AddMonths(12)
+	$expiryDate = (Get-Date).AddMonths(3)
 	$expiryDate = $expiryDate.addDays(-($expiryDate.Day) + 1)
 	$expiryDate = $expiryDate.addHours(-($expiryDate.Hour))
 	$expiryDate = $expiryDate.addMinutes(-($expiryDate.Minute))
@@ -117,7 +118,7 @@ function New-GEWISWGMemberAccount {
 
 	$username = "m" + $membershipNumber
 	$password = Get-Password
-	$expiryDate = Get-ExpiryDate
+	$expiryDate = Get-GEWISWGExpiryDate
 
 	$existingAccount = Get-ADUser $username -ErrorAction Ignore
 	if ($existingAccount -ne $null) {
@@ -138,7 +139,7 @@ function New-GEWISWGMemberAccount {
 			-Server $server `
 			-UserPrincipalName "$username@gewiswg.gewis.nl" `
 			-Enabled $True `
-			-Path "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl" `
+			-Path $memberOU `
 			-AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
 			-AccountExpirationDate $expiryDate.AddSeconds(1) # We expire 1 second after our last validity date
 	}
@@ -149,7 +150,7 @@ function New-GEWISWGMemberAccount {
 	Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4116"
 	$primaryGroupToken = (get-adgroup "S-1-5-21-3053190190-970261712-1328217982-4116" -properties @("primaryGroupToken")).primaryGroupToken
 	set-aduser -Identity $username -replace @{primaryGroupID=$primaryGroupToken} -Server $server
-	# Add to "PRIV - ROaming profile"
+	# Add to "PRIV - Roaming profile"
 	Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4678"
 	# Add to "MEMBER - Ordinary"
 	Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-5293"
@@ -157,11 +158,51 @@ function New-GEWISWGMemberAccount {
 	$message = Get-Content -Path "$PSScriptRoot/newAccountMessage.txt" -RAW
 	$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#PASSWORD#', $password
 
-	Send-GEWISMail -message $message -to $personalEmail -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
+	Send-GEWISMail -message $message -to "$firstName $lastName <$personalEmail>" -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
 	Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to "Computer Beheer Commissie <cbc@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
 
 }
 Export-ModuleMember -Function New-GEWISWGMemberAccount
+
+function Renew-GEWISWGMemberAccount {
+	param(
+		[Parameter(Mandatory=$true)][int][ValidateNotNullOrEmpty()] $membershipNumber
+	)
+
+	if ($server -eq $null) {Connect-GEWISWG}
+
+	$username = "m" + $membershipNumber
+	$expiryDate = Get-GEWISWGExpiryDate
+
+	Get-ADUser -Identity $username | Set-ADUser -AccountExpirationDate $expiryDate.AddSeconds(1)
+}
+Export-ModuleMember -Function Renew-GEWISWGMemberAccount
+
+function Expire-GEWISWGMemberAccount {
+	param(
+		[Parameter(Mandatory=$true)][int][ValidateNotNullOrEmpty()] $membershipNumber,
+		[Parameter(Mandatory=$true)][int][ValidateNotNullOrEmpty()] $days,
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $firstName,
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $lastName,
+		[string] $personalEmail
+	)
+
+	if ($server -eq $null) {Connect-GEWISWG}
+
+	$username = "m" + $membershipNumber
+	$expiryDate = (Get-Date).AddDays(14)
+
+	Get-ADUser -Identity $username | Set-ADUser -AccountExpirationDate $expiryDate
+
+	$message = Get-Content -Path "$PSScriptRoot/accountExpiryMessage.txt" -RAW
+	$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#DAYS#', $days -replace '#EXPIRYDATE#', $expiryDate
+
+	if ($personalEmail -ne $null) { Send-GEWISMail -message $message -to "$firstName $lastName <$personalEmail>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon. A copy has been sent to your personal email address due to the importance of this message." }
+	Send-GEWISMail -message $message -to "$firstName $lastName <$username@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
+	Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to "Computer Beheer Commissie <cbc@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
+
+}
+Export-ModuleMember -Function Expire-GEWISWGMemberAccount
 
 function New-GEWISWGOrganMember {
 	param(

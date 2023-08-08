@@ -4,10 +4,12 @@ $results = ""
 #Requires -Modules GEWIS-Mail
 #Requires -Modules GEWISDB-PS
 
+$memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
+
 $usersDB = Get-GEWISDBActiveMembers -includeInactive $True
 $usersDBNr = $usersDB.lidnr
 
-$usersAD = Get-ADuser -Properties "Initials", "memberOf" -SearchBase "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl" -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$usersAD = Get-ADuser -Properties "Initials", "memberOf" -SearchBase $memberOU -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
 $usersADNr = $usersAD.SamAccountName -replace "^m", ""
 
 $comparison = Compare-Object -ReferenceObject $usersDBNr -DifferenceObject $usersADNr
@@ -61,18 +63,18 @@ $usersDB | Foreach-Object {
     $initials = $userDB.initials.subString(0, [System.Math]::Min(6, $userDB.initials.Length)) 
     if ($initials -ne $userAD.initials) {
         $userAD | Set-ADuser -Initials $initials
-        $results += ("<li>Updating initials for $($userDB.lidnr): $($userAD.initials) ==> ${initials}")
+        $results += ("<li>Updating initials for $($userDB.lidnr): $($userAD.initials) ==> ${initials}</li>")
     }
     if ($userDB.firstName -ne $userAD.GivenName) {
         $userAD | Set-ADuser -GivenName $userDB.firstName -DisplayName $userDB.fullName
         $userAD | Rename-ADObject -NewName "$($userDB.fullName) (m$($userDB.lidnr))"
-        $results += ("<li>Updating given name for $($userDB.lidnr): $($userAD.givenName) ==> $($userDB.firstName)")
+        $results += ("<li>Updating given name for $($userDB.lidnr): $($userAD.givenName) ==> $($userDB.firstName)</li>")
     }
     $ln = ($userDB.middleName + " " + $userDB.lastName).Trim()
     if ($ln -ne $userAD.Surname) {
         $userAD | Set-ADuser -Surname $ln -DisplayName $userDB.fullName
         $userAD | Rename-ADObject -NewName "$($userDB.fullName) (m$($userDB.lidnr))"
-        $results += ("<li>Updating surname for $($userDB.lidnr): $($userAD.Surname) ==> ${ln}")
+        $results += ("<li>Updating surname for $($userDB.lidnr): $($userAD.Surname) ==> ${ln}</li>")
     }
 
     $userOrgansAD = @()
@@ -91,19 +93,48 @@ $usersDB | Foreach-Object {
     $userOrgansRemove = ($userOrgansDiff | Where-Object -Property SideIndicator -eq "<=").InputObject
     
     if ($userOrgansAdd -ne $null) {
-        $results += ("<li>Adding organs to $($userDB.lidnr): $userOrgansAdd")
+        $results += ("<li>Adding organs to $($userDB.lidnr): $userOrgansAdd</li>")
         $userOrgansAdd | Foreach-Object {
             New-GEWISWGOrganMember -organName $_ -member $userAD.SID
         }
     }
 
     if ($userOrgansRemove -ne $null) {
-        $results += ("<li>Removing organs from $($userDB.lidnr): $userOrgansRemove")
+        $results += ("<li>Removing organs from $($userDB.lidnr): $userOrgansRemove</li>")
         $userOrgansRemove | Foreach-Object {
             Remove-GEWISWGOrganMember -organName $_ -member $userAD.SID
         }
     }
 
+}
+
+# Fix not having account expiry dates
+Get-ADUser -Filter * -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -eq $null | Set-ADUser -AccountExpirationDate (Get-Date)
+
+# Get accounts that expire in the next 30 days but should be renewed (this is to prevent issues where the check below does not work properly)
+$accountsToRenew = Get-ADUser -LDAPFilter "(|((memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Active members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))((memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Fraternity Inactive Members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))((memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Lifetime Mailbox,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))((memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Board requested accounts,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))((memberOf:1.2.840.113556.1.4.1941:=CN=Board - Boards,OU=Board,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -lt (Get-Date).AddDays(30)
+$accountsToRenew | Foreach-Object {
+    # $results += ("<li>Renewed $($_.employeeNumber): now expires $newExpiry (was $($_.AccountExpirationDate))</li>")
+    Renew-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber)
+}
+
+# Get accounts that do not expire in the next 14 days but no longer have a reason for being enabled
+$accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Active members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Fraternity Inactive Members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Lifetime Mailbox,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Board requested accounts,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Board - Boards,OU=Board,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(14)
+$accountsToExpire | Foreach-Object {
+    $results += ("<li>Expired $($_.employeeNumber): now expires $((Get-Date).AddDays(14)) (was $($_.AccountExpirationDate))</li>")
+    $member = Get-GEWISDBMember $($_.employeeNumber)
+    $ln = ($member.middleName + " " + $member.lastName).Trim()
+    Expire-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber) -days 14 -firstName $member.firstName -lastName $ln -personalEmail $member.email
+}
+
+# Disable accounts that have expired for 24 hours (this causes the account to be disabled in lots of other systems)
+# We ignore timezone differences here so the range is 25-26 hours depending on daylight savings time
+$current18bit = ([int64] (get-date -Millisecond 0 -UFormat %s) + 11644473600) * 10000000
+$dayago18bit = [int64] ($current18bit - 86400 * 10000000)
+$accountsToDisable =  Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(accountExpires=9223372036854775807))(!(accountExpires=0))(accountExpires<=$dayago18bit))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU
+$accountsToDisable | Foreach-Object {
+    $results += ("<li>Disabled $($_.employeeNumber): expired $($_.AccountExpirationDate), last logon $($_.LastLogonDate)</li>")
+    $_ | Set-ADUser -Enabled $False
 }
 
 if ($results -ne "") {
