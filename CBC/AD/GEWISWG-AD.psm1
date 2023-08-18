@@ -214,7 +214,7 @@ function New-GEWISWGOrganMember {
 	if ($organ -eq $null) {$organ = Get-GEWISWGOrgan $organName}
 	if ($organ -eq $null) { return} 
 
-	Add-ADGroupMember -Members $member -Server $server -Identity $organ.SID
+	Add-ADGroupMember -Confirm:$false -Members $member -Server $server -Identity $organ.SID
 }
 Export-ModuleMember -Function New-GEWISWGOrganMember
 
@@ -228,6 +228,6 @@ function Remove-GEWISWGOrganMember {
 	if ($organ -eq $null) {$organ = Get-GEWISWGOrgan $organName}
 	if ($organ -eq $null) { return} 
 
-	Remove-ADGroupMember -Members $member -Server $server -Identity $organ.SID
+	Remove-ADGroupMember -Confirm:$false -Members $member -Server $server -Identity $organ.SID
 }
 Export-ModuleMember -Function Remove-GEWISWGOrganMember
