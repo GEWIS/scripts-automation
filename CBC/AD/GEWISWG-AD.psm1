@@ -122,7 +122,7 @@ function New-GEWISWGMemberAccount {
 
 	$existingAccount = Get-ADUser $username -ErrorAction Ignore
 	if ($existingAccount -ne $null) {
-		$existingAccount | Set-ADUser -Enabled $True
+		$existingAccount | Set-ADUser -Enabled $True -AccountExpirationDate $expiryDate.AddSeconds(1)
 		$password = "Previously set by user"
 	} else {
 		New-ADUser -AllowReversiblePasswordEncryption $False `
