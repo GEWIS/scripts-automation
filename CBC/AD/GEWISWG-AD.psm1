@@ -183,8 +183,8 @@ function Expire-GEWISWGMemberAccount {
 	param(
 		[Parameter(Mandatory=$true)][int][ValidateNotNullOrEmpty()] $membershipNumber,
 		[Parameter(Mandatory=$true)][int][ValidateNotNullOrEmpty()] $days,
-		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $firstName,
-		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $lastName,
+		[Parameter(Mandatory=$true)][string][AllowEmptyString()] $firstName,
+		[Parameter(Mandatory=$true)][string][AllowEmptyString()] $lastName,
 		[string] $personalEmail
 	)
 
@@ -195,13 +195,14 @@ function Expire-GEWISWGMemberAccount {
 
 	Get-ADUser -Identity $username | Set-ADUser -AccountExpirationDate $expiryDate
 
-	$message = Get-Content -Path "$PSScriptRoot/accountExpiryMessage.txt" -RAW
-	$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#DAYS#', $days -replace '#EXPIRYDATE#', $expiryDate
+	if ($firstname -ne $null -and $firstname -ne "") {
+		$message = Get-Content -Path "$PSScriptRoot/accountExpiryMessage.txt" -RAW
+		$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#DAYS#', $days -replace '#EXPIRYDATE#', $expiryDate
 
-	if ($personalEmail -ne $null) { Send-GEWISMail -message $message -to "$firstName $lastName <$personalEmail>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon. A copy has been sent to your personal email address due to the importance of this message." }
-	Send-GEWISMail -message $message -to "$firstName $lastName <$username@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
-	Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to "Computer Beheer Commissie <cbc@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
-
+		if ($personalEmail -ne $null) { Send-GEWISMail -message $message -to "$firstName $lastName <$personalEmail>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon. A copy has been sent to your personal email address due to the importance of this message." }
+		Send-GEWISMail -message $message -to "$firstName $lastName <$username@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
+		Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to "Computer Beheer Commissie <cbc@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
+	}
 }
 Export-ModuleMember -Function Expire-GEWISWGMemberAccount
 
