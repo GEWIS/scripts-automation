@@ -7,6 +7,7 @@ $server = $null
 $organOU = "OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl"
 $memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
 $groupWithAllOrgans = "S-1-5-21-3053190190-970261712-1328217982-4970"
+$groupKeyholders = "S-1-5-21-3053190190-970261712-1328217982-4120"
 $runDate = Get-Date -Format "yyyy-MM-dd HH:mm"
 
 # The goal of this module is to allow AD functionality specific to GEWIS to be easily used
@@ -231,3 +232,21 @@ function Remove-GEWISWGOrganMember {
 	Remove-ADGroupMember -Confirm:$false -Members $member -Server $server -Identity $organ.SID
 }
 Export-ModuleMember -Function Remove-GEWISWGOrganMember
+
+function Add-GEWISWGKeyholder {
+	param(
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $member
+	)
+
+	Add-ADGroupMember -Confirm:$false -Members $member -Server $server -Identity $groupKeyholders
+}
+Export-ModuleMember -Function Add-GEWISWGKeyholder
+
+function Remove-GEWISWGKeyholder {
+	param(
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $member
+	)
+
+	Remove-ADGroupMember -Confirm:$false -Members $member -Server $server -Identity $groupKeyholders
+}
+Export-ModuleMember -Function Remove-GEWISWGKeyholder

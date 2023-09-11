@@ -135,6 +135,16 @@ $usersDB | Foreach-Object {
         }
     }
 
+    if ($userDB.keyholder -eq $False -and ($userAD.memberOf -eq "CN=PRIV - Openhouders (huidige sleutelhouders),OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -ge 1) {
+        $results += ("<li>Removing keyholder permissions from $($userDB.lidnr)</li>")
+        Remove-GEWISWGKeyholder $userAD
+    }
+
+    if ($userDB.keyholder -eq $True -and ($userAD.memberOf -eq "CN=PRIV - Openhouders (huidige sleutelhouders),OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
+        $results += ("<li>Adding keyholder permissions to $($userDB.lidnr)</li>")
+        Add-GEWISWGKeyholder $userAD
+    }
+
 }
 
 # Fix not having account expiry dates
