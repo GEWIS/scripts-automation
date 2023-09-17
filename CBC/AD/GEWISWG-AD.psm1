@@ -142,6 +142,7 @@ function New-GEWISWGMemberAccount {
 			-Enabled $True `
 			-Path $memberOU `
 			-AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
+			-ChangePasswordAtLogon $True `
 			-AccountExpirationDate $expiryDate.AddSeconds(1) # We expire 1 second after our last validity date
 	}
 
