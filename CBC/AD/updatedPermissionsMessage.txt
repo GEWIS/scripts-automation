@@ -1,0 +1,5 @@
+<p>Permissions updated for #USER#:</p>
+<p><b>Added</b>:</p>
+<ul>#ADDED#</ul>
+<p><b>Removed</b>:</p>
+<ul>#REMOVED#</ul>

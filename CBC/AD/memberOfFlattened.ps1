@@ -3,16 +3,26 @@
 # You probably think it is ugly, but at that point in time no better way to do this was found
 # 2022-01-08. Rink
 
-$server = "gewisdc03"
+#Requires -Modules GEWIS-Mail
+
+# We pick one domain controller for the whole script
+$dom = Get-ADDomain
+$server = $dom.PDCEmulator
 
 # We need to update only those members who are (indirectly) in a group that has been changed recently
 # The problem is that you don't know who have been removed
 
-$settings = Get-Content -Raw -Path "memberOfSettings.json" | ConvertFrom-Json
+$settings = Get-Content -Raw -Path "C:\GEWISScripts\output\memberOfSettings.json" | ConvertFrom-Json
+$lastRun = (Get-Date $settings.lastRun).AddMinutes(-3) # Add 3 minutes margin
 
-$lastRun = (Get-Date $settings.lastRun.value).AddMinutes(-3) #This is a todo, give it 3 minutes margin
-$settings.lastRun.value = (Get-Date).ToString()
-$settings | ConvertTo-Json -Compress | Out-File "memberOfSettings.json"
+if ($lastRun -eq $null) {
+    $settings = New-Object -TypeName psobject
+    Add-Member -InputObject $settings -MemberType NoteProperty -Name lastRun -Value (Get-Date "1970-01-01").ToString()
+    $lastRun = Get-Date "1970-01-01"
+}
+
+$settings.lastRun = (Get-Date).ToString()
+$settings | ConvertTo-Json -Compress | Out-File "C:\GEWISScripts\output\memberOfSettings.json"
 
 $diff = (Get-Date) - $lastRun
 echo "Last run was $($diff.TotalMinutes) minutes ago" 
@@ -43,13 +53,14 @@ foreach ($impactedGroup in $impactedGroups) {
     $new = $new | Foreach {"$($_.DistinguishedName)"}
 
     echo "Differences:"
-    $different = Compare-Object -ReferenceObject $current -DifferenceObject $new #-PassThru #| Select SideIndicator, name, distinguishedName
+    $different = Compare-Object -ReferenceObject @($current | Select-Object) -DifferenceObject @($new | Select-Object) #-PassThru #| Select SideIndicator, name, distinguishedName
     echo $different | Format-Table
     $different | Foreach {$impactedUserDNs.Add($_.InputObject)} | Out-Null
 
-    if ($new -eq $null) { $new = "" }
-
-    if ($different -ne $null) {
+    if ($new -eq $null) { 
+        echo "Clearing attribute"
+        Set-ADGroup $impactedGroup.distinguishedName -Clear "memberFlattened" -Server $server -WarningAction Inquire -ErrorAction Inquire
+    } elseif ($different -ne $null) {
         echo "Saving changes"
         Set-ADGroup $impactedGroup.distinguishedName -Replace @{memberFlattened=$new} -Server $server -WarningAction Inquire -ErrorAction Inquire
     }
@@ -70,7 +81,7 @@ echo "Number of impacted users: $($impactedUserDNs.Count)"
 
 echo "== Start: $(Date) =="
 #$users = Get-ADUser -Filter 'enabled -eq $true' -Server $server
-#$users = Get-ADUser -Filter 'samaccountname -eq "m9093"' -Server $server
+# $users = Get-ADUser -Filter 'samaccountname -eq "m9093"' -Server $server
 $users = $impactedUserDNs
 #$users = Get-ADGroupMember -Identity wiki---organ-intro -Recursive -Server $server | Get-ADUser -Server $server
 $i = 0
@@ -90,21 +101,45 @@ foreach ($user in $users) {
 
     # This disregards the primary group, but is quicker:
     $groups = Get-ADGroup -LDAPFilter ("(member:1.2.840.113556.1.4.1941:={0})" -f $dn) -Server $server
-    $memberOfFlattened = $groups | Foreach {"$($_.DistinguishedName)"}
+    $new = $groups | Foreach {"$($_.DistinguishedName)"}
+    if ($new.Count -eq 0) { $new = "CN=Domain Users,CN=Users,DC=gewiswg,DC=gewis,DC=nl" }
 
-    
-    
-    #$user.memberOfFlattened.Add("CN=PRIV - Wiki Logon,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl")
-    #$memberOfFlattened = {"CN=PRIV - Wiki Logon,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl"; "CN=COMPUTERS Virtual Workstations,OU=Groups,DC=gewiswg,DC=gewis,DC=nl"}
-    if ($memberOfFlattened.Count -eq 0) { $memberOfFlattened = "CN=Domain Users,CN=Users,DC=gewiswg,DC=gewis,DC=nl" }
-    try {
-        Set-ADUser $dn -Replace @{memberOfFlattened=$memberOfFlattened} -Server $server -WarningAction Inquire -ErrorAction Inquire
-    } catch {
-        echo "Failed to set $dn. This may not be a user object"
+    $ADUser = Get-Aduser -Properties memberOfFlattened,mail,Name,SamAccountName $user
+    if ($ADUser.mail -ne "") { $mail = $ADUser.mail }
+    else { $mail = "adflattennoemail@gewis.nl" }
+    $current = $ADUser.memberOfFlattened
+    $different = Compare-Object -ReferenceObject $current -DifferenceObject $new #-PassThru #| Select SideIndicator, name, distinguishedName
+
+    if ($different -ne $null) {
+        try {
+            $addedGroups = ""
+            $removedGroups = ""
+            Set-ADUser $dn -Replace @{memberOfFlattened=$new} -Server $server -WarningAction Inquire -ErrorAction Inquire
+            $different | Foreach {
+                if ($_.SideIndicator -eq "<=") { $removedGroups += ("<li>" + $_.InputObject + "</li>") }
+                elseif ($_.SideIndicator -eq "=>") { $addedGroups += ("<li>" + $_.InputObject + "</li>") }
+            }
+
+            $message = Get-Content -Path "$PSScriptRoot/updatedPermissionsMessage.txt" -RAW
+            $message = $message -replace '#USER#', $ADUser.Name -replace '#ADDED#', $addedGroups -replace '#REMOVED#', $removedGroups
+            Send-SimpleMail `
+                -message $message `
+                -replyTo "$($ADUser.Name) <$mail>" `
+                -to "Computer Beheer Commissie <cbcissues@gewis.nl>" `
+                -mainTitle "Notification from CBC" `
+                -subject "Account permissions updated for $($ADUser.SamAccountName)" `
+                -heading "Updated account permissions" `
+                -oneLiner "Permissions for your account have been updated" `
+                -footer "This message was sent to you because you have an account in the GEWIS systems."
+
+            Write-Host "Added" $addedGroups
+            Write-Host "Removed" $removedGroups
+        } catch {
+            echo "Failed to set $dn. This may not be a user object. $($_.Exception) $($_.ErrorDetails)"
+        }
     }
+
     $i = $i + 1
     echo $i
-    #echo $user
-    #echo $memberOfFlattened
 }
 echo "== End: $(Date) =="

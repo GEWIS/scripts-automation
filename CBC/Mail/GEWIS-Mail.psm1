@@ -28,6 +28,10 @@ function Connect-GEWISMail {
 }
 Export-ModuleMember -Function Connect-GEWISMail
 
+<#
+	.Synopsis
+	Send an email with the GEWIS Mail template
+#>
 function Send-GEWISMail {
 	param(
 		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $message,
@@ -53,3 +57,32 @@ function Send-GEWISMail {
 	}
 }
 Export-ModuleMember -Function Send-GEWISMail
+
+<#
+	.Synopsis
+	Compatible mail sending function, but does not use the template
+#>
+function Send-SimpleMail {
+	param(
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $message,
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $mainTitle,
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $heading,
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $to,
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $subject,
+		[Parameter()][string][AllowNull()] $replyTo = $null,
+		[Parameter()][string][AllowNull()] $oneLiner = $null,
+		[Parameter()][string][AllowNull()] $footer = $null
+	)
+
+	if ($oneLiner -eq $null) {$oneLiner = $mainTitle}
+
+	$body = $message
+	$from = $Script:from -replace '(?:.*)<(.*)>', '$1'
+
+	if ($replyTo -eq $null) {
+		Send-EmailMessage -Server $Script:server -Username $Script:username -From $Script:from -Port $Script:port -SecureSocketOptions SslOnConnect -Password $Script:password -To $to -Subject $subject  -HTML $body -Verbose
+	} else {
+		Send-EmailMessage -Server $Script:server -Username $Script:username -From $Script:from -Port $Script:port -SecureSocketOptions SslOnConnect -Password $Script:password -To $to -replyTo $replyTo -Subject $subject  -HTML $body -Verbose
+	}
+}
+Export-ModuleMember -Function Send-SimpleMail
