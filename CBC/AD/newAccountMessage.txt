@@ -1,6 +1,6 @@
 <p>Hi #FIRSTNAME#,</p>
 <p>Recently you became active within GEWIS.  Since you are now an active member of GEWIS, we have created a "member account" for you that you can use for a lot of GEWIS systems. Among other things, with this account you can sign in to the computers in the room, get access to your own @gewis.nl email, can use our private Overleaf and store your files. <br />On <a href="https://wiki.gewis.nl/link/315">https://wiki.gewis.nl/link/315</a> you can find all the systems that you can use with this account.</p>
-<p><strong>What are my credentials?<br /></strong>In the table below, you will find the temporary credentials for your account. To activate your account and change your password, sign in to <a href="https://auth.gewis.nl">https://auth.gewis.nl </a>first.</p>
+<p><strong>What are my credentials?<br /></strong>In the table below, you will find the temporary credentials for your account. To activate your account and change your password, sign in to <a href="https://auth.gewis.nl">https://auth.gewis.nl</a> first.</p>
 <table style="border-collapse: collapse; width: 100%;" border="1">
     <colgroup>
         <col style="width: 50%;" />
