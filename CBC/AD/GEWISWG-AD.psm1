@@ -123,12 +123,12 @@ function New-GEWISWGMemberAccount {
 
 	$existingAccount = Get-ADUser $username -ErrorAction Ignore
 	if ($existingAccount -ne $null) {
-		$existingAccount | Set-ADUser -Enabled $True -AccountExpirationDate $expiryDate.AddSeconds(1)
+		$existingAccount | Set-ADUser -Enabled $True -AccountExpirationDate $expiryDate.AddSeconds(1) -ChangePasswordAtLogon $True
 		$password = "Previously set by user"
 	} else {
 		New-ADUser -AllowReversiblePasswordEncryption $False `
 			-CannotChangePassword $False `
-			-ChangePasswordAtLogon $False `
+			-ChangePasswordAtLogon $True `
 			-DisplayName "$firstName $lastName" `
 			-EmailAddress "$username@gewis.nl" `
 			-EmployeeNumber $membershipNumber `
@@ -142,7 +142,6 @@ function New-GEWISWGMemberAccount {
 			-Enabled $True `
 			-Path $memberOU `
 			-AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
-			-ChangePasswordAtLogon $True `
 			-AccountExpirationDate $expiryDate.AddSeconds(1) # We expire 1 second after our last validity date
 	}
 
