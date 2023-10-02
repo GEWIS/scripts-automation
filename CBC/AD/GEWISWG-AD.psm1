@@ -141,6 +141,7 @@ function New-GEWISWGMemberAccount {
 			-UserPrincipalName "$username@gewiswg.gewis.nl" `
 			-Enabled $True `
 			-Path $memberOU `
+   			-KerberosEncryptionType "AES256" `
 			-AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
 			-AccountExpirationDate $expiryDate.AddSeconds(1) # We expire 1 second after our last validity date
 	}
