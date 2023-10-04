@@ -35,7 +35,7 @@ function New-GEWISWGOrgan([string]$organName) {
 
     $simplename = Remove-StringDiacritic (Remove-StringSpecialCharacter $organName -SpecialCharacterToKeep "-")
 
-	New-ADGroup -Confirm:$true -Name "Organ - $organName" -GroupCategory Security -GroupScope Global -SamAccountName "ORGAN_$simplename" -Description "GEWISDB Sync: Automatically created organ" -Path $organOU -OtherAttributes @{'info'="$($runDate): Created by Sync Script"} -Server $server -ErrorAction Inquire
+	New-ADGroup -Confirm:$false -Name "Organ - $organName" -GroupCategory Security -GroupScope Global -SamAccountName "ORGAN_$simplename" -Description "GEWISDB Sync: Automatically created organ" -Path $organOU -OtherAttributes @{'info'="$($runDate): Created by Sync Script"} -Server $server -ErrorAction Inquire
 	Add-ADGroupMember -Identity $groupWithAllOrgans -Members "ORGAN_$simplename" -ErrorAction Inquire -Server $server
 }
 Export-ModuleMember -Function New-GEWISWGOrgan
@@ -61,14 +61,14 @@ Function Archive-GEWISWGOrgan([string]$organName) {
     $group = Get-GEWISWGOrgan($organName)
     if ($group -eq $null) { Return }
 
-	Remove-ADGroupMember -Identity $groupWithAllOrgans -Confirm:$true -Members $group.SID -ErrorAction Inquire -Server $server
+	Remove-ADGroupMember -Identity $groupWithAllOrgans -Confirm:$false -Members $group.SID -ErrorAction SilentlyContinue -Server $server
 
-	$otherGroupMemberships = Get-ADPrincipalGroupMembership -Identity $group.SID -Server $server -ErrorAction Inquire 
+	$otherGroupMemberships = Get-ADPrincipalGroupMembership -Identity $group.SID -Server $server -ErrorAction SilentlyContinue 
 	foreach ($otherGroupMembership in $otherGroupMemberships) {
-		Remove-ADGroupMember -Identity $otherGroupMembership.SID.Value -Members $group.SID.Value -ErrorAction Inquire -Server $server -WhatIf
+		Remove-ADGroupMember -Identity $otherGroupMembership.SID.Value -Confirm:$false -Members $group.SID.Value -ErrorAction SilentlyContinue -Server $server
 	}
 
-	Set-ADGroup -Identity $group.SID -Confirm -Replace @{info = $group.info + "`r`n$($runDate): Archived by sync script"} -Server $server
+	Set-ADGroup -Identity $group.SID -Confirm:$false -Replace @{info = $group.info + "`r`n$($runDate): Archived by sync script"} -Server $server
 	#In some cases, the rename makes the object temporarily unavailable 
 	Get-ADGroup -Identity $group.SID | Rename-ADObject -NewName "Abrogated Organ - $organName" -Server $server
 }
