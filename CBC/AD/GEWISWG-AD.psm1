@@ -152,14 +152,14 @@ function New-GEWISWGMemberAccount {
 	
 	
 	if ($existingAccount -ne $null) { #Don't make it the users problem om failure
-		# Add to Mailcow Mailbox
-		Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-2713"
+		# Add to Mailcow Mailbox (2023-10-11, inheritance based now)
+		# Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-2713"
 		# Add to Leden and make it the primary group
 		Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4116"
 		$primaryGroupToken = (get-adgroup "S-1-5-21-3053190190-970261712-1328217982-4116" -properties @("primaryGroupToken")).primaryGroupToken
-		set-aduser -Identity $username -replace @{primaryGroupID=$primaryGroupToken} -Server $server
-		# Add to "PRIV - Roaming profile"
-		Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4678"
+		Set-ADUser -Identity $username -replace @{primaryGroupID=$primaryGroupToken} -Server $server
+		# Add to "PRIV - Roaming profile" (2023-10-11, inheritance based now)
+		# Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4678"
 		# Add to "MEMBER - Ordinary"
 		Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-5293"
 
