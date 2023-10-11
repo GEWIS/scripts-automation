@@ -120,8 +120,10 @@ function New-GEWISWGMemberAccount {
 	$username = "m" + $membershipNumber
 	$password = Get-Password
 	$expiryDate = Get-GEWISWGExpiryDate
+	
+	$initials = $initials.subString(0, [System.Math]::Min(6, $initials.Length)) 
 
-	$existingAccount = Get-ADUser $username -ErrorAction Ignore
+	$existingAccount = Get-ADUser $username -Server $server -ErrorAction Ignore
 	if ($existingAccount -ne $null) {
 		$existingAccount | Set-ADUser -Enabled $True -AccountExpirationDate $expiryDate.AddSeconds(1) -ChangePasswordAtLogon $True
 		$password = "Previously set by user"
@@ -143,26 +145,30 @@ function New-GEWISWGMemberAccount {
 			-Path $memberOU `
    			-KerberosEncryptionType "AES256" `
 			-AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
-			-AccountExpirationDate $expiryDate.AddSeconds(1) # We expire 1 second after our last validity date
+			-AccountExpirationDate $expiryDate.AddSeconds(1) ` # We expire 1 second after our last validity date
+			-ErrorAction Stop
+		$existingAccount = Get-ADUser $username -Server $server -ErrorAction Ignore
 	}
+	
+	
+	if ($existingAccount -ne $null) { #Don't make it the users problem om failure
+		# Add to Mailcow Mailbox
+		Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-2713"
+		# Add to Leden and make it the primary group
+		Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4116"
+		$primaryGroupToken = (get-adgroup "S-1-5-21-3053190190-970261712-1328217982-4116" -properties @("primaryGroupToken")).primaryGroupToken
+		set-aduser -Identity $username -replace @{primaryGroupID=$primaryGroupToken} -Server $server
+		# Add to "PRIV - Roaming profile"
+		Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4678"
+		# Add to "MEMBER - Ordinary"
+		Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-5293"
 
-	# Add to Mailcow Mailbox
-	Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-2713"
-	# Add to Leden and make it the primary group
-	Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4116"
-	$primaryGroupToken = (get-adgroup "S-1-5-21-3053190190-970261712-1328217982-4116" -properties @("primaryGroupToken")).primaryGroupToken
-	set-aduser -Identity $username -replace @{primaryGroupID=$primaryGroupToken} -Server $server
-	# Add to "PRIV - Roaming profile"
-	Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4678"
-	# Add to "MEMBER - Ordinary"
-	Add-ADGroupMember -Members $username -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-5293"
+		$message = Get-Content -Path "$PSScriptRoot/newAccountMessage.txt" -RAW
+		$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#PASSWORD#', $password
 
-	$message = Get-Content -Path "$PSScriptRoot/newAccountMessage.txt" -RAW
-	$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#PASSWORD#', $password
-
-	Send-GEWISMail -message $message -to "$firstName $lastName <$personalEmail>" -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
-	Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to "Computer Beheer Commissie <cbc@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
-
+		Send-GEWISMail -message $message -to "$firstName $lastName <$personalEmail>" -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
+		Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to "Computer Beheer Commissie <cbc@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
+	}
 }
 Export-ModuleMember -Function New-GEWISWGMemberAccount
 
