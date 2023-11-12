@@ -8,7 +8,8 @@ $organOU = "OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl"
 $memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
 $groupWithAllOrgans = "S-1-5-21-3053190190-970261712-1328217982-4970"
 $groupKeyholders = "S-1-5-21-3053190190-970261712-1328217982-4120"
-$runDate = Get-Date -Format "yyyy-MM-dd HH:mm"
+$dateFormat = "yyyy-MM-dd HH:mm"
+$runDate = Get-Date -Format $dateFormat
 
 # The goal of this module is to allow AD functionality specific to GEWIS to be easily used
 
@@ -204,7 +205,7 @@ function Expire-GEWISWGMemberAccount {
 
 	if ($firstname -ne $null -and $firstname -ne "") {
 		$message = Get-Content -Path "$PSScriptRoot/accountExpiryMessage.txt" -RAW
-		$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#DAYS#', $days -replace '#EXPIRYDATE#', $expiryDate
+		$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#DAYS#', $days -replace '#EXPIRYDATE#', $expiryDate.ToString($dateFormat)
 
 		if ($personalEmail -ne $null) { Send-GEWISMail -message $message -to "$firstName $lastName <$personalEmail>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon. A copy has been sent to your personal email address due to the importance of this message." }
 		Send-GEWISMail -message $message -to "$firstName $lastName <$username@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
