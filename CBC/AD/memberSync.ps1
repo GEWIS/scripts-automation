@@ -31,6 +31,7 @@ Write-Host "Organs to archive:" $archiveOrgans.Count
 $newOrgans | Foreach-Object {
     If ($_ -eq $null) {return}
     New-GEWISWGOrgan($_)
+    $results += "<li>Adding ${_}: <i>Please create necessary objects</i></li>"
 }
 $archiveOrgans | Foreach-Object {
     If ($_ -eq $null) {return}
