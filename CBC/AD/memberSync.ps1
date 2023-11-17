@@ -9,7 +9,7 @@ $memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
 $usersDB = Get-GEWISDBActiveMembers -includeInactive $True
 $usersDBNr = $usersDB.lidnr
 
-$usersAD = Get-ADuser -Properties "Initials", "memberOf" -SearchBase $memberOU -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$usersAD = Get-ADuser -Properties "Initials", "memberOf" -SearchBase $memberOU -SearchScope OneLevel -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
 $usersADNr = $usersAD.SamAccountName -replace "^m", ""
 
 $comparison = Compare-Object -ReferenceObject $usersDBNr -DifferenceObject $usersADNr
@@ -47,12 +47,17 @@ $accountsToRenew | Foreach-Object {
 }
 
 # Get accounts that do not expire in the next 14 days but no longer have a reason for being enabled
-$accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Active members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Fraternity Inactive Members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Lifetime Mailbox,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Board requested accounts,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Board - Boards,OU=Board,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(14)
+$accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Active members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Fraternity Inactive Members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Lifetime Mailbox,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Board requested accounts,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Board - Boards,OU=Board,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(14)
 $accountsToExpire | Foreach-Object {
-    $results += ("<li>Expired $($_.employeeNumber): now expires $((Get-Date).AddDays(14)) (was $($_.AccountExpirationDate))</li>")
-    $member = Get-GEWISDBMember $($_.employeeNumber)
-    $ln = ($member.middleName + " " + $member.lastName).Trim()
-    Expire-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber) -days 14 -firstName $member.firstName -lastName $ln -personalEmail $member.email
+    $results += ("<li>Expired $($_.SamAccountName) '$($_.employeeNumber)': now expires $((Get-Date).AddDays(14)) (was $($_.AccountExpirationDate))</li>")
+    if ($_.employeeNumber.length -gt 1) {
+        $member = Get-GEWISDBMember $($_.employeeNumber)
+        $ln = ($member.middleName + " " + $member.lastName).Trim()
+        Expire-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber) -days 14 -firstName $member.firstName -lastName $ln -personalEmail $member.email
+    }
+    else {
+        $_ | Set-ADUser -AccountExpirationDate (Get-Date).AddDays(14)
+    }
 }
 
 # Disable accounts that have expired for 24 hours (this causes the account to be disabled in lots of other systems)
