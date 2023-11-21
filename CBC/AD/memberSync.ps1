@@ -47,7 +47,7 @@ $accountsToRenew | Foreach-Object {
 }
 
 # Get accounts that do not expire in the next 14 days but no longer have a reason for being enabled
-$accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(14)
+$accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew disabled,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(14)
 $accountsToExpire | Foreach-Object {
     $results += ("<li>Expired $($_.SamAccountName): now expires $((Get-Date).AddDays(14)) (was $($_.AccountExpirationDate))</li>")
     if ($_.employeeNumber.length -gt 1) {
@@ -58,6 +58,13 @@ $accountsToExpire | Foreach-Object {
     else {
         $_ | Set-ADUser -AccountExpirationDate (Get-Date).AddDays(14)
     }
+}
+
+# Catch expiry dates > 18 months from now
+$accountsToExpire = Get-ADUser -LDAPFilter "(!(userAccountControl:1.2.840.113556.1.4.803:=2))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddMonths(18)
+$accountsToExpire | Foreach-Object {
+    $results += ("<li>Expired $($_.SamAccountName) <strong>because expiration date exceeded maximum of 18 months</strong>: now expires $((Get-Date).AddDays(30)) (was $($_.AccountExpirationDate))</li>")
+    $_ | Set-ADUser -AccountExpirationDate (Get-Date).AddDays(30)
 }
 
 # Disable accounts that have expired for 24 hours (this causes the account to be disabled in lots of other systems)
