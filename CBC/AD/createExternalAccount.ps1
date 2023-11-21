@@ -5,6 +5,7 @@ Write-Host "Connected to $server for $($dom.NetBIOSName)"
 
 # Checking what the next available username is
 $lastId = [int]((Get-ADUser -SearchBase "OU=External,OU=Member accounts,DC=GEWISWG,DC=GEWIS,DC=nl" -Filter * -Server $server | Sort-Object SamAccountName -Descending)[0].SamAccountName -replace "^e", "")
+if ($lastId -lt 200) { $lastId = 199 }
 $nextUsername = "e" + ($lastId + 1)
 $nextUpn = "$nextUsername@gewis.nl" #We can do @gewis.nl as a trial
 
