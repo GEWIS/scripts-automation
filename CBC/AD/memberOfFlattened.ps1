@@ -106,7 +106,7 @@ foreach ($user in $users) {
 
     $ADUser = Get-Aduser -Properties memberOfFlattened,mail,Name,SamAccountName $user
     if ($ADUser.mail -ne "") { $mail = $ADUser.mail }
-    else { $mail = "adflattennoemail@gewis.nl" }
+    else { $mail = "adflattennofemail@gewis.nl" }
     $current = $ADUser.memberOfFlattened
     $different = Compare-Object -ReferenceObject $current -DifferenceObject $new #-PassThru #| Select SideIndicator, name, distinguishedName
 

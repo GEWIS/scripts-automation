@@ -40,16 +40,16 @@ $archiveOrgans | Foreach-Object {
 }
 
 # Get accounts that expire in the next 30 days but should be renewed (this is to prevent issues where the check below does not work properly)
-$accountsToRenew = Get-ADUser -LDAPFilter "(|((memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Active members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))((memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Fraternity Inactive Members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))((memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Lifetime Mailbox,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))((memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Board requested accounts,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))((memberOf:1.2.840.113556.1.4.1941:=CN=Board - Boards,OU=Board,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -lt (Get-Date).AddDays(30)
+$accountsToRenew = Get-ADUser -LDAPFilter "(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -lt (Get-Date).AddDays(30)
 $accountsToRenew | Foreach-Object {
     # $results += ("<li>Renewed $($_.employeeNumber): now expires $newExpiry (was $($_.AccountExpirationDate))</li>")
     Renew-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber)
 }
 
 # Get accounts that do not expire in the next 14 days but no longer have a reason for being enabled
-$accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Active members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Fraternity Inactive Members,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Lifetime Mailbox,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Permissions - Board requested accounts,OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=Board - Boards,OU=Board,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(14)
+$accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(14)
 $accountsToExpire | Foreach-Object {
-    $results += ("<li>Expired $($_.SamAccountName) '$($_.employeeNumber)': now expires $((Get-Date).AddDays(14)) (was $($_.AccountExpirationDate))</li>")
+    $results += ("<li>Expired $($_.SamAccountName): now expires $((Get-Date).AddDays(14)) (was $($_.AccountExpirationDate))</li>")
     if ($_.employeeNumber.length -gt 1) {
         $member = Get-GEWISDBMember $($_.employeeNumber)
         $ln = ($member.middleName + " " + $member.lastName).Trim()
