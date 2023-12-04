@@ -1,6 +1,6 @@
 <p>Hi #FIRSTNAME#,</p>
 <p>The CBC likes to remind you that your account with username <strong>#USERNAME#</strong> is about to expire. It is currently scheduled to expire on #EXPIRYDATE#.
-<br/>This only affects your member account. It does not have any effect on your <a href="https://gewis.nl">gewis.nl</a> account.</p>
+<br/>This only affects your GEWISWG account you use for the various IT services of GEWIS. It does not have any effect on your membership or your account on <a href="https://gewis.nl">gewis.nl</a>.</p>
 <p>After #DAYS# days, you can no longer use the services associated with this account (such as your email account, signing to the computers, using the wiki). Some features which may be restricted to active members only may already be limited. In accordance with the ICT Policy, data for the account might be deleted once an account has been disabled for 6 months.</p>
 <p><strong>Does the account need to be renewed?<br /></strong>
 If you are still using this account, it can be renewed. For this, please reply to this email and let us know what services you still need.</p>
