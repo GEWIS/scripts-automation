@@ -1,3 +1,5 @@
+Import-Module .\GEWISWG-AD.psm1 -DisableNameChecking
+
 # Connect to the server
 $dom = Get-ADDomain
 $server = $dom.PDCEmulator
@@ -17,7 +19,9 @@ Write-Host "Setting details for user $nextUsername"
 $firstName = Read-Host "First name"
 $lastName = Read-Host "Last name"
 Write-Host "Username: $nextUsername"
-$password = Read-Host "Password (will be outputted in plaintext later)"
+$password = New-GEWISWGrandomPassword
+$desc = Read-Host "Description"
+$ticket = Read-Host "Ticket number (e.g. #CBC-$(Get-Date -Format "yyMM")-123)"
 $expiry = Get-Date (Read-Host "Expiry date (max. 18 months)")
 
 if ($expiry -gt (Get-Date).AddMonths(18)) {
@@ -29,7 +33,7 @@ try {
     New-ADUser -AllowReversiblePasswordEncryption $False `
         -CannotChangePassword $False `
         -ChangePasswordAtLogon $True `
-        -DisplayName "$firstName $lastName" `
+        -DisplayName "$firstName $lastName (EXTERN)" `
         -EmailAddress "$nextUsername@gewis.nl" `
         -GivenName $firstName `
         -Initials $initials `
@@ -39,6 +43,8 @@ try {
         -Server $server `
         -UserPrincipalName "$nextUpn" `
         -Enabled $True `
+        -Description $desc `
+        -OtherAttributes @{'info'="$(Get-Date -Format "yyyy-MM-dd"): Created using createExternalAccount.ps1 for ticket $ticket"} `
         -Path "OU=External,OU=Member accounts,DC=GEWISWG,DC=GEWIS,DC=nl" `
         -KerberosEncryptionType "AES256" `
         -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
@@ -59,11 +65,16 @@ if ($existingAccount.UserPrincipalName -eq $nextUpn) {
     # This is an external account for which we don't use autorenew rules
     Add-ADGroupMember -Members $nextUsername -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-6510"
 
-    Write-Host "====== Created user ======"
+    Write-Host "====== Created user, please use following output in ticket $ticket ======"
+    Write-Host "Dear $firstName,`n"
+    Write-Host "You, or someone on your behalf, requested an account for GEWISWG Active Directory. Since you are not a member of GEWIS, an external account has been created. For details on the services you have access to, please refer to ticket $ticket.`n"
     Write-Host "Username: $nextUsername"
     Write-Host "Password: $password"
-    Write-Host "Expiry date: $expiry"
-    Write-Host "Name: $($existingAccount.Name)"
+    Write-Host "Expiry date: $(Get-Date -Format "yyyy-MM-dd" $expiry)"
+    Write-Host "Name: $($existingAccount.Name)`n"
+    Write-Host "NOTE: By using this account you agree to the latest version of the ICT Policy of GEWIS. If you do not have a copy, you can request a copy from board@gewis.nl.`n"
+    Write-Host "To use this account, please change your password first through https://auth.gewis.nl."
+    Write-Host "This account will be automatically disabled on $(Get-Date -Format "dddd dd MMMM yyyy" $expiry) and will not be renewed automatically. If you want to keep using the account after that, please let us know."
 
     Write-Warning "This user does not have permissions to do anything yet. Please refer to https://wiki.gewis.nl/books/cbc/page/member-accounts-and-other-personal-accounts to ensure proper group membership"
 }

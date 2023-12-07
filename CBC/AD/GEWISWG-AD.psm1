@@ -88,7 +88,7 @@ function Scramble-String([string]$inputString){
     return $outputString
 }
 
-function Get-Password {
+function New-GEWISWGrandomPassword {
 	# We need at least 12 characters of which one capital letter and one number
 	$password = Get-RandomCharacters -length 9 -characters 'abcdefghikmnoprstuvwxyz'
 	$password += Get-RandomCharacters -length 2 -characters 'ABCDEFGHKLMNOPRSTUVWXYZ'
@@ -96,6 +96,8 @@ function Get-Password {
 	$password = Scramble-String $password
 	return $password
 }
+Export-ModuleMember -Function New-GEWISWGrandomPassword
+
 
 function Get-GEWISWGExpiryDate {
 	# Accounts expire on the last day of the month
@@ -119,7 +121,7 @@ function New-GEWISWGMemberAccount {
 	if ($server -eq $null) {Connect-GEWISWG}
 
 	$username = "m" + $membershipNumber
-	$password = Get-Password
+	$password = New-GEWISWGrandomPassword
 	$expiryDate = Get-GEWISWGExpiryDate
 	
 	$initials = $initials.subString(0, [System.Math]::Min(6, $initials.Length)) 
