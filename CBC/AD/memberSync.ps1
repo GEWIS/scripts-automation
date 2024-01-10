@@ -7,6 +7,19 @@ $results = ""
 $memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
 
 $usersDB = Get-GEWISDBActiveMembers -includeInactive $True
+
+# Force created accounts
+$requestedAccounts = (Get-Content "\\gewisfiles01\datas\99_Digital Affairs\manual_accounts.txt") -split "\r\n"
+Write-Host "Forcing account creation for:" $requestedAccounts
+# We retrieve details for users known in AD but not active (anymore)
+$usersDBForced = $requestedAccounts | Foreach-Object {
+    Get-GEWISDBMember $_ -ErrorAction SilentlyContinue
+    Add-ADGroupMember -Identity PERM_ManualAccountsTxt -Members ("m" + $_) -ErrorAction SilentlyContinue
+}
+if ($usersDBForced.length -gt 0) {
+    $usersDB += $usersDBForced
+}
+
 $usersDBNr = $usersDB.lidnr
 
 $usersAD = Get-ADuser -Properties "Initials", "memberOf" -SearchBase $memberOU -SearchScope OneLevel -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
