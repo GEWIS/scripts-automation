@@ -65,8 +65,8 @@ $accountsToExpire | Foreach-Object {
     $results += ("<li>Expired $($_.SamAccountName): now expires $((Get-Date).AddDays(14)) (was $($_.AccountExpirationDate))</li>")
     if ($_.employeeNumber.length -gt 1) {
         $member = Get-GEWISDBMember $($_.employeeNumber)
-        $ln = ($member.middleName + " " + $member.lastName).Trim()
-        Expire-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber) -days 14 -firstName $member.firstName -lastName $ln -personalEmail $member.email
+        $ln = ($member.middle_name + " " + $member.family_name).Trim()
+        Expire-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber) -days 14 -firstName $member.given_name -lastName $ln -personalEmail $member.email
     }
     else {
         $_ | Set-ADUser -AccountExpirationDate (Get-Date).AddDays(14)
@@ -94,8 +94,8 @@ $accountsToDisable | Foreach-Object {
 $newUsers | Foreach-Object {
     If ($_ -eq $null) {return}
 	$user = $usersDB | Where-Object lidnr -eq $_
-	$ln = ($user.middleName + " " + $user.lastName).Trim()
-	New-GEWISWGMemberAccount -membershipNumber $user.lidnr -firstName $user.firstName -lastName $ln -initials $user.initials -personalEmail $user.email
+	$ln = ($user.middle_name + " " + $user.family_name).Trim()
+	New-GEWISWGMemberAccount -membershipNumber $user.lidnr -firstName $user.given_name -lastName $ln -initials $user.initials -personalEmail $user.email
     $results += ("<li>Creating user account and sending credentials for " + $user.lidnr + "</li>")
 }
 
@@ -120,15 +120,15 @@ $usersDB | Foreach-Object {
         $userAD | Set-ADuser -Initials $initials
         $results += ("<li>Updating initials for $($userDB.lidnr): $($userAD.initials) ==> ${initials}</li>")
     }
-    if ($userDB.firstName -ne $userAD.GivenName) {
-        $userAD | Set-ADuser -GivenName $userDB.firstName -DisplayName $userDB.fullName
-        $userAD | Rename-ADObject -NewName "$($userDB.fullName) (m$($userDB.lidnr))"
-        $results += ("<li>Updating given name for $($userDB.lidnr): $($userAD.givenName) ==> $($userDB.firstName)</li>")
+    if ($userDB.given_name -ne $userAD.GivenName) {
+        $userAD | Set-ADuser -GivenName $userDB.given_name -DisplayName $userDB.full_name
+        $userAD | Rename-ADObject -NewName "$($userDB.full_name) (m$($userDB.lidnr))"
+        $results += ("<li>Updating given name for $($userDB.lidnr): $($userAD.givenName) ==> $($userDB.given_name)</li>")
     }
-    $ln = ($userDB.middleName + " " + $userDB.lastName).Trim()
+    $ln = ($userDB.middle_name + " " + $userDB.family_name).Trim()
     if ($ln -ne $userAD.Surname) {
-        $userAD | Set-ADuser -Surname $ln -DisplayName $userDB.fullName
-        $userAD | Rename-ADObject -NewName "$($userDB.fullName) (m$($userDB.lidnr))"
+        $userAD | Set-ADuser -Surname $ln -DisplayName $userDB.full_name
+        $userAD | Rename-ADObject -NewName "$($userDB.full_name) (m$($userDB.lidnr))"
         $results += ("<li>Updating surname for $($userDB.lidnr): $($userAD.Surname) ==> ${ln}</li>")
     }
 

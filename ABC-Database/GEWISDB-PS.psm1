@@ -7,11 +7,11 @@ class Member
 {
     [ValidateNotNullOrEmpty()][int]$lidnr
     [string]$email #For some members this unfortunately is null
-    [ValidateNotNullOrEmpty()][string]$fullName
+    [ValidateNotNullOrEmpty()][string]$full_name
     [ValidateNotNullOrEmpty()][string]$initials
-    [ValidateNotNullOrEmpty()][string]$firstName
-    [ValidateNotNull()][string]$middleName
-    [ValidateNotNullOrEmpty()][string]$lastName
+    [ValidateNotNullOrEmpty()][string]$given_name
+    [ValidateNotNull()][string]$middle_name
+    [ValidateNotNullOrEmpty()][string]$family_name
     [ValidateRange(1900,2200)][int]$generation
     [ValidateNotNull()][boolean]$hidden
     [ValidateNotNull()][boolean]$deleted
