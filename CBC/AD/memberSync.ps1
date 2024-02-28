@@ -56,7 +56,7 @@ $archiveOrgans | Foreach-Object {
 $accountsToRenew = Get-ADUser -LDAPFilter "(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -lt (Get-Date).AddDays(30)
 $accountsToRenew | Foreach-Object {
     # $results += ("<li>Renewed $($_.employeeNumber): now expires $newExpiry (was $($_.AccountExpirationDate))</li>")
-    Renew-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber)
+    Renew-GEWISWGMemberAccount -username $($_.SamAccountName)
 }
 
 # Get accounts that do not expire in the next 14 days but no longer have a reason for being enabled
@@ -86,7 +86,7 @@ $current18bit = ([int64] (get-date -Millisecond 0 -UFormat %s) + 11644473600) * 
 $dayago18bit = [int64] ($current18bit - 86400 * 10000000)
 $accountsToDisable =  Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(accountExpires=9223372036854775807))(!(accountExpires=0))(accountExpires<=$dayago18bit))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU
 $accountsToDisable | Foreach-Object {
-    $results += ("<li>Disabled $($_.employeeNumber): expired $($_.AccountExpirationDate), last logon $($_.LastLogonDate)</li>")
+    $results += ("<li>Disabled $($_.SamAccountName): expired $($_.AccountExpirationDate), last logon $($_.LastLogonDate)</li>")
     $_ | Set-ADUser -Enabled $False
 }
 
@@ -178,5 +178,5 @@ Get-ADUser -Filter * -Properties AccountExpirationDate, LastLogonDate, employeeN
 
 if ($results -ne "") {
     $message = "<ul>$results</ul>"
-    Send-GEWISMail -message $message -to "cbc@gewis.nl" -replyTo "CBC AD Team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Results" -heading "AD Sync Results"
+    Send-GEWISMail -message $message -to "cbc@gewis.nl" -replyTo "GEWIS Secretary <secr@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Results" -heading "AD Sync Results"
 }

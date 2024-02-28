@@ -177,12 +177,11 @@ Export-ModuleMember -Function New-GEWISWGMemberAccount
 
 function Renew-GEWISWGMemberAccount {
 	param(
-		[Parameter(Mandatory=$true)][int][ValidateNotNullOrEmpty()] $membershipNumber
+		[Parameter(Mandatory=$true)][int][ValidateNotNullOrEmpty()] $username
 	)
 
 	if ($server -eq $null) {Connect-GEWISWG}
 
-	$username = "m" + $membershipNumber
 	$expiryDate = Get-GEWISWGExpiryDate
 
 	Get-ADUser -Identity $username | Set-ADUser -AccountExpirationDate $expiryDate.AddSeconds(1)
