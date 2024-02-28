@@ -12,6 +12,7 @@ class Member
     [ValidateNotNullOrEmpty()][string]$given_name
     [ValidateNotNull()][string]$middle_name
     [ValidateNotNullOrEmpty()][string]$family_name
+    [ValidateNotNullOrEmpty()][string]$membership_type
     [ValidateRange(1900,2200)][int]$generation
     [ValidateNotNull()][boolean]$hidden
     [ValidateNotNull()][boolean]$deleted

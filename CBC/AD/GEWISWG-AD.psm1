@@ -177,7 +177,7 @@ Export-ModuleMember -Function New-GEWISWGMemberAccount
 
 function Renew-GEWISWGMemberAccount {
 	param(
-		[Parameter(Mandatory=$true)][int][ValidateNotNullOrEmpty()] $username
+		[Parameter(Mandatory=$true)][string][ValidateNotNullOrEmpty()] $username
 	)
 
 	if ($server -eq $null) {Connect-GEWISWG}

@@ -171,6 +171,42 @@ $usersDB | Foreach-Object {
         Add-GEWISWGKeyholder $userAD
     }
 
+    # Fixing membership type, ordinary
+    if ($userDB.membership_type -eq 'ordinary' -and ($userAD.memberOf -eq "CN=MEMBER - Ordinary,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
+        $results += ("<li>Setting membership type of $($userDB.lidnr): now ordinary</li>")
+        Add-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5295" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5297" -Confirm:$false -ErrorAction SilentlyContinue
+    }
+
+    # Fixing membership type, external
+    if ($userDB.membership_type -eq 'external' -and ($userAD.memberOf -eq "CN=MEMBER - External,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
+        $results += ("<li>Setting membership type of $($userDB.lidnr): now external</li>")
+        Add-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5295" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5297" -Confirm:$false -ErrorAction SilentlyContinue
+    }
+
+    # Fixing membership type, graduate
+    if ($userDB.membership_type -eq 'graduate' -and ($userAD.memberOf -eq "CN=MEMBER - Graduate (non-member),OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
+        $results += ("<li>Setting membership type of $($userDB.lidnr): now graduate</li>")
+        Add-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5297" -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5295" -Confirm:$false -ErrorAction SilentlyContinue
+    }
+
+    # Fixing membership type, honorary
+    if ($userDB.membership_type -eq 'honorary' -and ($userAD.memberOf -eq "CN=MEMBER - Honorary,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
+        $results += ("<li>Setting membership type of $($userDB.lidnr): now honorary</li>")
+        Add-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5295" -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5297" -Confirm:$false -ErrorAction SilentlyContinue
+    }
+
 }
 
 # Fix not having account expiry dates
