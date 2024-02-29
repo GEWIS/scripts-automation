@@ -13,8 +13,10 @@ $requestedAccounts = (Get-Content "\\gewisfiles01\datas\99_Digital Affairs\manua
 Write-Host "Forcing account creation for:" $requestedAccounts
 # We retrieve details for users known in AD but not active (anymore)
 $usersDBForced = $requestedAccounts | Foreach-Object {
-    Get-GEWISDBMember $_ -ErrorAction SilentlyContinue
-    Add-ADGroupMember -Identity PERM_ManualAccountsTxt -Members ("m" + $_) -ErrorAction SilentlyContinue
+    if ($usersDB.lidnr -notcontains $_) {
+        Get-GEWISDBMember $_ -ErrorAction SilentlyContinue
+        Add-ADGroupMember -Identity PERM_ManualAccountsTxt -Members ("m" + $_) -ErrorAction SilentlyContinue
+    }
 }
 if ($usersDBForced.length -gt 0) {
     $usersDB += $usersDBForced
