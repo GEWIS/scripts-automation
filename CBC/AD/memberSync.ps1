@@ -33,6 +33,12 @@ $manualCheckUsers = ($comparison | Where-Object -Property SideIndicator -eq "=>"
 Write-Host "No AD account yet:" $newUsers
 Write-Host "Manual check needed:" $manualCheckUsers
 
+If ($newUsers.Count -gt 50) {
+    Write-Warning "Creating more than 50 users, not continuing"
+    Send-GEWISMail -message "Attempting to create more than 50 users, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    exit
+}
+
 # We also compare the active organs in the DB and in AD
 # New organs get automatically created, old ones automatically archived
 $organsDB = ($usersDB.organs.organ.abbreviation | Select -Unique)
@@ -42,6 +48,18 @@ $newOrgans = ($comparison | Where-Object -Property SideIndicator -eq "<=").Input
 $archiveOrgans = ($comparison | Where-Object -Property SideIndicator -eq "=>").InputObject
 Write-Host "Organs to create:" $newOrgans.Count
 Write-Host "Organs to archive:" $archiveOrgans.Count
+
+If ($newOrgans.Count -gt 10) {
+    Write-Warning "Creating more than 10 organs, not continuing"
+    Send-GEWISMail -message "Attempting to create more than 10 organs, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    exit
+}
+
+If ($archiveOrgans.Count -gt 5) {
+    Write-Warning "Deleting more than 5 organs, not continuing"
+    Send-GEWISMail -message "Attempting to delete more than 5 organs, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    exit
+}
 
 $newOrgans | Foreach-Object {
     If ($_ -eq $null) {return}
@@ -63,6 +81,11 @@ $accountsToRenew | Foreach-Object {
 
 # Get accounts that do not expire in the next 14 days but no longer have a reason for being enabled
 $accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew disabled,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(14)
+If ($accountsToExpire.Count -gt 50) {
+    Write-Warning "Deleting more than 20 users, not continuing"
+    Send-GEWISMail -message "Attempting to expire more than 20 users, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    exit
+}
 $accountsToExpire | Foreach-Object {
     $results += ("<li>Expired $($_.SamAccountName): now expires $((Get-Date).AddDays(14)) (was $($_.AccountExpirationDate))</li>")
     if ($_.employeeNumber.length -gt 1) {
