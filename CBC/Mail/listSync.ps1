@@ -17,7 +17,7 @@ Get-ADGroup -Filter 'cn -like "* - member" -or cn -like "* - owner" -or cn -like
     $subscribers = Get-MailmanListMembers -listId $listId -role $role
     $emailsList = ($subscribers | ForEach-Object { $_.email })
     if ($emailsList -eq $null) { $emailsList = @()} 
-    $emailsAD = (Get-ADGroupMember $_ -Recursive | Get-ADObject -Properties Mail | Select-Object Mail).Mail
+    $emailsAD = (Get-ADObject -LDAPFilter "(memberOf:1.2.840.113556.1.4.1941:=$($_.DistinguishedName))" -Properties Mail | where-object objectclass -in contact,user | where-object mail -ne $null | Select-Object Mail).Mail
     if ($emailsAD -eq $null) { $emailsAD = @()} 
     $differences = Compare-Object -ReferenceObject $emailsList -DifferenceObject $emailsAD
     $addEmails = ($differences | Where-Object -Property SideIndicator -eq "=>").InputObject
