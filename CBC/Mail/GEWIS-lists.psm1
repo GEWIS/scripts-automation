@@ -28,12 +28,13 @@ class ListSubscriber
 	[AllowNull()][DateTime]$last_bounce_received = "0001-01-01T00:00:00"
 	[ValidateNotNullOrEmpty()][DateTime]$last_warning_sent
 	[int]$total_warnings_sent
-	[ValidateSet('regular','mime_digests','plaintext_digests')][string]$delivery_mode
+	[ValidateSet('regular','mime_digests','plaintext_digests','summary_digests')][string]$delivery_mode
+	[AllowNull()][ValidateSet('enabled','by_user','by_bounces','by_moderator')][string]$delivery_status
 	[ValidateNotNullOrEmpty()][mailaddress]$email
 	[ValidateNotNullOrEmpty()][string]$list_id
 	[ValidateSet('as_address','as_user')][string]$subscription_mode
 	[ValidateSet('owner','moderator','member','nonmember')][string]$role
-	[AllowNull()][ValidateSet('accept')][string]$moderation_action
+	[AllowNull()][ValidateSet('', 'accept','hold','reject','discard','defer')][string]$moderation_action
 	[ValidateNotNullOrEmpty()][string]$user
 	[ValidateNotNull()][string]$display_name
 	[ValidateNotNullOrEmpty()][string]$self_link
@@ -181,7 +182,7 @@ function Add-MailmanListMember {
 		pre_approved=$True
 		send_welcome_message=$True
 		delivery_mode="regular"
-		delivery_status="by_user"
+		delivery_status="enabled"
 	}
 	$Response = Invoke-MailmanAPIRequest -endPoint "/3.1/members" -data $data -method 'POST'
 	$Response
@@ -200,7 +201,7 @@ function Remove-MailmanListMember {
 	)
 	$Response = Get-MailmanSubscriptionsByAddress -subscriberEmail $subscriberEmail | Where-Object role -eq $role | Where-Object list_id -eq $listId
 	if ($Response.Count -eq 1) {
-		$Response = Invoke-MailmanAPIRequest -endPoint ("/" + $Response[0].self_link.Split("/",4)[3]) -method 'DELETE'
+		$Response = Invoke-MailmanAPIRequest -endPoint ("/" + $Response[0].self_link.Split("/",4)[3] + "?pre_approved=true&pre_confirmed=true") -method 'DELETE'
 	}
 }
 Export-ModuleMember -Function Remove-MailmanListMember
