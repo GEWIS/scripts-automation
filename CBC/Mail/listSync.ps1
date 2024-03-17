@@ -1,3 +1,6 @@
+$date = get-date -Format "yyyy-MM-dd\\HH.mm"
+Start-Transcript -Path "C:\GEWISscripts\output\$date - listsync.txt" -Append
+
 # Imports module and connects (using credentials)
 ./listConnect.ps1
 
