@@ -51,7 +51,7 @@ Export-ModuleMember -Function Get-GEWISWGOrgans
 function Get-GEWISWGOrgan([string]$organName) {
 	if ($server -eq $null) {Connect-GEWISWG}
 
-	Get-ADGroup -Filter "(name -like 'Organ - $organName')" -Properties info -SearchBase $organOU -Server $server
+	Get-ADGroup -Filter "(name -like 'Organ - $organName')" -Properties info, description -SearchBase $organOU -Server $server
 }
 Export-ModuleMember -Function Get-GEWISWGOrgan
 
@@ -69,7 +69,7 @@ Function Archive-GEWISWGOrgan([string]$organName) {
 		Remove-ADGroupMember -Identity $otherGroupMembership.SID.Value -Confirm:$false -Members $group.SID.Value -ErrorAction SilentlyContinue -Server $server
 	}
 
-	Set-ADGroup -Identity $group.SID -Confirm:$false -Replace @{info = $group.info + "`r`n$($runDate): Archived by sync script"} -Server $server
+	Set-ADGroup -Identity $group.SID -Confirm:$false -Replace @{info = $group.info + "`r`n$($runDate): Archived by sync script"; description = "Archived $runDate / " + $group.description} -Server $server
 	#In some cases, the rename makes the object temporarily unavailable 
 	Get-ADGroup -Identity $group.SID | Rename-ADObject -NewName "Abrogated Organ - $organName" -Server $server
 }
@@ -200,7 +200,7 @@ function Expire-GEWISWGMemberAccount {
 	if ($server -eq $null) {Connect-GEWISWG}
 
 	$username = "m" + $membershipNumber
-	$expiryDate = (Get-Date).AddDays(14)
+	$expiryDate = (Get-Date -Hour 0 -Minute 0 -Second 0 -Millisecond 0).AddDays($days)
 
 	Get-ADUser -Identity $username | Set-ADUser -AccountExpirationDate $expiryDate
 

@@ -22,6 +22,11 @@ if ($usersDBForced.length -gt 0) {
     $usersDB += $usersDBForced
 }
 
+# Only consider a member active if there is a contact email address in GEWISDB
+# If we already have an account, we will add it again as a manual check user and then disable the account
+$usersDB = $usersDB | Where-Object { $_.email.Length -gt 0 }
+
+# We only need membership numbers for comparison
 $usersDBNr = $usersDB.lidnr
 
 $usersAD = Get-ADuser -Properties "Initials", "memberOf" -SearchBase $memberOU -SearchScope OneLevel -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
@@ -43,7 +48,7 @@ If ($newUsers.Count -gt 50) {
 # New organs get automatically created, old ones automatically archived
 $organsDB = ($usersDB.organs.organ.abbreviation | Select -Unique)
 $organsAD = (Get-GEWISWGOrgans).Name -replace " \((in)?active members\)$", "" -replace "^Organ - ", ""  | Select -Unique
-$comparison =Compare-Object -ReferenceObject $organsDB -DifferenceObject $organsAD
+$comparison = Compare-Object -ReferenceObject $organsDB -DifferenceObject $organsAD
 $newOrgans = ($comparison | Where-Object -Property SideIndicator -eq "<=").InputObject
 $archiveOrgans = ($comparison | Where-Object -Property SideIndicator -eq "=>").InputObject
 Write-Host "Organs to create:" $newOrgans.Count
@@ -72,29 +77,36 @@ $archiveOrgans | Foreach-Object {
     $results += "<li>Archiving ${_}: <i>Please update former organ permissions</i></li>"
 }
 
-# Get accounts that expire in the next 30 days but should be renewed (this is to prevent issues where the check below does not work properly)
-$accountsToRenew = Get-ADUser -LDAPFilter "(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -lt (Get-Date).AddDays(30)
+# Get accounts that expire in the next 60 days but should be renewed (this is to prevent issues where the check below does not work properly)
+$accountsToRenew = Get-ADUser -LDAPFilter "(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -lt (Get-Date).AddDays(60)
 $accountsToRenew | Foreach-Object {
     # $results += ("<li>Renewed $($_.employeeNumber): now expires $newExpiry (was $($_.AccountExpirationDate))</li>")
     Renew-GEWISWGMemberAccount -username $($_.SamAccountName)
 }
 
 # Get accounts that do not expire in the next 14 days but no longer have a reason for being enabled
-$accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew disabled,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(14)
+# Based on the age of the account, they get some extra time of account usage
+$accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew disabled,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName, whenCreated -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(7)
 If ($accountsToExpire.Count -gt 50) {
-    Write-Warning "Deleting more than 20 users, not continuing"
-    Send-GEWISMail -message "Attempting to expire more than 20 users, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    Write-Warning "Deleting more than 50 users, not continuing"
+    Send-GEWISMail -message "Attempting to expire more than 50 users, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
     exit
 }
 $accountsToExpire | Foreach-Object {
-    $results += ("<li>Expired $($_.SamAccountName): now expires $((Get-Date).AddDays(14)) (was $($_.AccountExpirationDate))</li>")
-    if ($_.employeeNumber.length -gt 1) {
-        $member = Get-GEWISDBMember $($_.employeeNumber)
-        $ln = ($member.middle_name + " " + $member.family_name).Trim()
-        Expire-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber) -days 14 -firstName $member.given_name -lastName $ln -personalEmail $member.email
-    }
-    else {
-        $_ | Set-ADUser -AccountExpirationDate (Get-Date).AddDays(14)
+    $expireDays = [int](($_.whenCreated - (Get-Date)).TotalDays/-25)
+    if ($expireDays -lt 7) { $expireDays = 7 }
+    if ($expireDays -gt 60) { $expireDays = 60 }
+    $expiryDate = (Get-Date -Hour 0 -Minute 0 -Second 0 -Millisecond 0).AddDays($expireDays)
+    if ($_.AccountExpirationDate -gt $expiryDate.AddHours(2)) {
+        $results += ("<li>Expired $($_.SamAccountName): now expires $expiryDate (was $($_.AccountExpirationDate))</li>")
+        if ($_.employeeNumber.length -gt 1) {
+            $member = Get-GEWISDBMember $($_.employeeNumber)
+            $ln = ($member.middle_name + " " + $member.family_name).Trim()
+            Expire-GEWISWGMemberAccount -membershipNumber $($_.employeeNumber) -days $expireDays -firstName $member.given_name -lastName $ln -personalEmail $member.email
+        }
+        else {
+            $_ | Set-ADUser -AccountExpirationDate $expiryDate
+        }
     }
 }
 
@@ -109,18 +121,18 @@ $accountsToExpire | Foreach-Object {
 # We ignore timezone differences here so the range is 25-26 hours depending on daylight savings time
 $current18bit = ([int64] (get-date -Millisecond 0 -UFormat %s) + 11644473600) * 10000000
 $dayago18bit = [int64] ($current18bit - 86400 * 10000000)
-$accountsToDisable =  Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(accountExpires=9223372036854775807))(!(accountExpires=0))(accountExpires<=$dayago18bit))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU
+$accountsToDisable =  Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(accountExpires=9223372036854775807))(!(accountExpires=0))(accountExpires<=$dayago18bit))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, description -SearchBase $memberOU
 $accountsToDisable | Foreach-Object {
     $results += ("<li>Disabled $($_.SamAccountName): expired $($_.AccountExpirationDate), last logon $($_.LastLogonDate)</li>")
-    $_ | Set-ADUser -Enabled $False
+    $_ | Set-ADUser -Enabled $False -Description "Disabled $(get-date -Format "yyyy-MM-dd") / $($_.Description)"
 }
 
 
 $newUsers | Foreach-Object {
     If ($_ -eq $null) {return}
 	$user = $usersDB | Where-Object lidnr -eq $_
-	$ln = ($user.middle_name + " " + $user.family_name).Trim()
-	New-GEWISWGMemberAccount -membershipNumber $user.lidnr -firstName $user.given_name -lastName $ln -initials $user.initials -personalEmail $user.email
+    $ln = ($user.middle_name + " " + $user.family_name).Trim()
+    New-GEWISWGMemberAccount -membershipNumber $user.lidnr -firstName $user.given_name -lastName $ln -initials $user.initials -personalEmail $user.email
     $results += ("<li>Creating user account and sending credentials for " + $user.lidnr + "</li>")
 }
 
@@ -133,7 +145,7 @@ if ($usersDBManual.length -gt 0) {
 }
 
 # Get a new copy of AD users
-$usersAD = Get-ADuser -Properties "Initials", "memberOf" -SearchBase $memberOU -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+$usersAD = Get-ADuser -Properties "Initials", "memberOf", "description" -SearchBase $memberOU -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
 $usersDB | Foreach-Object {
     $userDB = $_
     $userAD = $usersAD | Where-Object SamAccountName -eq ("m" + $userDB.lidnr)
@@ -230,6 +242,12 @@ $usersDB | Foreach-Object {
         Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
         Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -Confirm:$false -ErrorAction SilentlyContinue
         Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5297" -Confirm:$false -ErrorAction SilentlyContinue
+    }
+
+    # Lock a member if they don't have a valid email address in GEWISDB anymore
+    if ($userDB.email.Length -eq 0) {
+        $results += ("<li>Disabled $($userAD.SamAccountName): no contact details in GEWISDB</li>")
+        $userAD | Set-ADUser -Enabled $False -Description "Disabled $(get-date -Format "yyyy-MM-dd"): no contact details / $($userAD.Description)"
     }
 
 }
