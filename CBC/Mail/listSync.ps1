@@ -28,7 +28,8 @@ Get-ADGroup -Filter 'cn -like "* - member" -or cn -like "* - owner" -or cn -like
     Write-Host "Removing $removeEmails"
 
     # 41 or more additions/deletions? Suggests a mistake
-    if ($addEmails.Count -gt 40 -or $removeEmails.Count -gt 40) {
+    if ($addEmails.Count -gt 100 -or $removeEmails.Count -gt 40) {
+        Write-Warning "Adding $($addEmails.Count), removing $($removeEmails.Count)"
         exit
     }
 
@@ -46,4 +47,3 @@ Get-ADGroup -Filter 'cn -like "* - member" -or cn -like "* - owner" -or cn -like
         }
     }
 }
-
