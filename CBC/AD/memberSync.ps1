@@ -188,6 +188,10 @@ $usersDB | Foreach-Object {
         $results += ("<li>Adding organs to $($userDB.lidnr): $userOrgansAdd</li>")
         $userOrgansAdd | Foreach-Object {
             New-GEWISWGOrganMember -organName $_ -member $userAD.SID
+		    # Active members get their own home and profile, add to "PRIV - Roaming profile", idempotent operation
+		    Add-ADGroupMember -Members $userAD.SID -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4678"
+            # Active members get a mailbox, add to Mailcow Mailbox, idempotent operation
+            Add-ADGroupMember -Members $userAD.SID -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-2713"
         }
     }
 
