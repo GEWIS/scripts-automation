@@ -49,7 +49,7 @@ foreach ($impactedGroup in $impactedGroups) {
     $current = $impactedGroup.memberFlattened
 
     #New member flattened
-    $new = Get-ADGroupMember -Identity $impactedGroup.DistinguishedName -Recursive -Server $server
+    $new = Get-ADGroupMember -Identity $impactedGroup.DistinguishedName -Recursive -Server $server | Where-Object { $_.objectClass -eq "user" }
     $new = $new | Foreach {"$($_.DistinguishedName)"}
 
     echo "Differences:"
