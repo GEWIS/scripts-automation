@@ -11,7 +11,7 @@ $usersDB = Get-GEWISDBActiveMembers -includeInactive $True
 # Force created accounts
 $requestedAccounts = (Get-Content "\\gewisfiles01\datas\99_Digital Affairs\manual_accounts.txt") -split "\r\n"
 Write-Host "Forcing account creation for:" $requestedAccounts
-# We retrieve details for users known in AD but not active (anymore)
+# We retrieve details for users that are specified by the secretary
 $usersDBForced = $requestedAccounts | Foreach-Object {
     if ($usersDB.lidnr -notcontains $_) {
         Get-GEWISDBMember $_ -ErrorAction SilentlyContinue
@@ -146,6 +146,30 @@ if ($usersDBManual.length -gt 0) {
 
 # Get a new copy of AD users
 $usersAD = Get-ADuser -Properties "Initials", "memberOf", "description" -SearchBase $memberOU -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+
+
+# Immediately disable m-accounts for users who have been deleted in GEWISDB after June 1st, 2022
+$notFoundinDB = (Compare-Object -ReferenceObject $usersDBManual.lidnr -DifferenceObject $manualCheckUsers | Where-Object -Property SideIndicator -eq "=>").InputObject
+$exceptionVeryOld = (Get-ADGroupMember -Recursive TA_NOTINGEWISDB).SamAccountName -replace "^m", ""
+$toDelete = $notFoundinDB | Where-Object { $_ -notin $exceptionVeryOld }
+
+If ($toDelete.Count -gt 15) {
+    Write-Warning "Deleting more than 15 members, not continuing"
+    Send-GEWISMail -message "Attempting to delete more than 15 members, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    exit
+}
+
+$toDelete | ForEach-Object {
+    $userAD = $usersAD | Where-Object SamAccountName -eq ("m" + $_)
+
+    $results += ("<li>Disabled $($userAD.SamAccountName): not in GEWISDB</li>")
+    $userAD | Set-ADUser -Enabled $False -Description "Disabled $(get-date -Format "yyyy-MM-dd"): not in GEWISDB / $($userAD.Description)"
+    Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5295" -Confirm:$false -ErrorAction SilentlyContinue
+    Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
+    Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -Confirm:$false -ErrorAction SilentlyContinue
+    Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5297" -Confirm:$false -ErrorAction SilentlyContinue
+}
+
 $usersDB | Foreach-Object {
     $userDB = $_
     $userAD = $usersAD | Where-Object SamAccountName -eq ("m" + $userDB.lidnr)
@@ -188,10 +212,6 @@ $usersDB | Foreach-Object {
         $results += ("<li>Adding organs to $($userDB.lidnr): $userOrgansAdd</li>")
         $userOrgansAdd | Foreach-Object {
             New-GEWISWGOrganMember -organName $_ -member $userAD.SID
-		    # Active members get their own home and profile, add to "PRIV - Roaming profile", idempotent operation
-		    Add-ADGroupMember -Members $userAD.SID -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-4678"
-            # Active members get a mailbox, add to Mailcow Mailbox, idempotent operation
-            Add-ADGroupMember -Members $userAD.SID -Server $server -Identity "S-1-5-21-3053190190-970261712-1328217982-2713"
         }
     }
 
@@ -212,8 +232,11 @@ $usersDB | Foreach-Object {
         Add-GEWISWGKeyholder $userAD
     }
 
+    # If membership is at least another day
+    $notExpired = $userDB.expiration -gt (Get-Date).AddDays(1)
+
     # Fixing membership type, ordinary
-    if ($userDB.membership_type -eq 'ordinary' -and ($userAD.memberOf -eq "CN=MEMBER - Ordinary,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
+    if ($notExpired -and $userDB.membership_type -eq 'ordinary' -and ($userAD.memberOf -eq "CN=MEMBER - Ordinary,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
         $results += ("<li>Setting membership type of $($userDB.lidnr): now ordinary</li>")
         Add-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -ErrorAction SilentlyContinue
         Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -Confirm:$false -ErrorAction SilentlyContinue
@@ -222,7 +245,7 @@ $usersDB | Foreach-Object {
     }
 
     # Fixing membership type, external
-    if ($userDB.membership_type -eq 'external' -and ($userAD.memberOf -eq "CN=MEMBER - External,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
+    if ($notExpired -and $userDB.membership_type -eq 'external' -and ($userAD.memberOf -eq "CN=MEMBER - External,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
         $results += ("<li>Setting membership type of $($userDB.lidnr): now external</li>")
         Add-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -ErrorAction SilentlyContinue
         Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
@@ -231,7 +254,7 @@ $usersDB | Foreach-Object {
     }
 
     # Fixing membership type, graduate
-    if ($userDB.membership_type -eq 'graduate' -and ($userAD.memberOf -eq "CN=MEMBER - Graduate (non-member),OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
+    if ($notExpired -and $userDB.membership_type -eq 'graduate' -and ($userAD.memberOf -eq "CN=MEMBER - Graduate (non-member),OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
         $results += ("<li>Setting membership type of $($userDB.lidnr): now graduate</li>")
         Add-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5297" -ErrorAction SilentlyContinue
         Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
@@ -240,7 +263,7 @@ $usersDB | Foreach-Object {
     }
 
     # Fixing membership type, honorary
-    if ($userDB.membership_type -eq 'honorary' -and ($userAD.memberOf -eq "CN=MEMBER - Honorary,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
+    if ($notExpired -and $userDB.membership_type -eq 'honorary' -and ($userAD.memberOf -eq "CN=MEMBER - Honorary,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl").Count -lt 1) {
         $results += ("<li>Setting membership type of $($userDB.lidnr): now honorary</li>")
         Add-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5295" -ErrorAction SilentlyContinue
         Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
@@ -252,6 +275,21 @@ $usersDB | Foreach-Object {
     if ($userDB.email.Length -eq 0) {
         $results += ("<li>Disabled $($userAD.SamAccountName): no contact details in GEWISDB</li>")
         $userAD | Set-ADUser -Enabled $False -Description "Disabled $(get-date -Format "yyyy-MM-dd"): no contact details / $($userAD.Description)"
+    }
+
+    # If a member has expired, remove all membership types
+    if ($userDB.expiration -lt (Get-Date)) {
+        $results += ("<li>Setting membership type of $($userDB.lidnr): removed membership</li>")
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5295" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5297" -Confirm:$false -ErrorAction SilentlyContinue
+    }
+
+    # If a member has expired for 24 hours, lock the account
+    if ($userDB.expiration -lt (Get-Date).AddHours(-24)) {
+        $results += ("<li>Disabled $($userAD.SamAccountName): expired in GEWISDB</li>")
+        $userAD | Set-ADUser -Enabled $False -Description "Disabled $(get-date -Format "yyyy-MM-dd"): expired in GEWISDB / $($userAD.Description)"
     }
 
 }

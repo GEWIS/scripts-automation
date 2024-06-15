@@ -145,6 +145,9 @@ param(
     )
 	if ($apiToken -eq $null) {Connect-GEWISDB}
 	$Response = Invoke-GEWISDBRequest -endPoint ("/members/" + $membernumber)
+    if ($null -eq $Response -or $Response.data.deleted -eq $True) {
+        return $null
+    }
 	[Member]$Response.data
 }
 Export-ModuleMember -Function Get-GEWISDBMember

@@ -47,3 +47,4 @@ Get-ADGroup -Filter 'cn -like "* - member" -or cn -like "* - owner" -or cn -like
         }
     }
 }
+
