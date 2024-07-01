@@ -131,6 +131,7 @@ $accountsToDisable | Foreach-Object {
 $newUsers | Foreach-Object {
     If ($_ -eq $null) {return}
 	$user = $usersDB | Where-Object lidnr -eq $_
+    if ($user.expiration -lt (Get-Date)) { return }
     $ln = ($user.middle_name + " " + $user.family_name).Trim()
     New-GEWISWGMemberAccount -membershipNumber $user.lidnr -firstName $user.given_name -lastName $ln -initials $user.initials -personalEmail $user.email
     $results += ("<li>Creating user account and sending credentials for " + $user.lidnr + "</li>")
@@ -287,7 +288,7 @@ $usersDB | Foreach-Object {
     }
 
     # If a member has expired for 24 hours, lock the account
-    if ($userDB.expiration -lt (Get-Date).AddHours(-24)) {
+    if ($userDB.expiration -lt (Get-Date).AddHours(-4)) {
         $results += ("<li>Disabled $($userAD.SamAccountName): expired in GEWISDB</li>")
         $userAD | Set-ADUser -Enabled $False -Description "Disabled $(get-date -Format "yyyy-MM-dd"): expired in GEWISDB / $($userAD.Description)"
     }
