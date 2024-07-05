@@ -106,9 +106,11 @@ param(
         $ResponseBody = ParseErrorForResponseBody($_)
 		if ($_.Exception.Response.StatusCode.value__ -eq 403) {
 			Write-Error -Category AuthenticationError $responseBody -ErrorAction Stop
+			throw $_.Exception
 		}
 		#Write-Verbose $ResponseBody -ErrorAction Ignore
 		Write-Error -Category ConnectionError ("An error occured. API returned unexpected status code" + [string]$_.Exception.Response.StatusCode.value__) -ErrorAction Stop
+		throw $_.Exception
 	}
 	
 	$Response
@@ -120,9 +122,31 @@ param(
 #>
 function Test-GEWISDBHealth {
 	if ($apiToken -eq $null) {Connect-GEWISDB}
-	Invoke-GEWISDBRequest -endPoint ""
+	Invoke-GEWISDBRequest -endPoint "/health"
 }
 Export-ModuleMember -Function Test-GEWISDBHealth
+
+<#
+	.Synopsis
+	Verify whether the database currently allows external applications to sync
+#>
+function Test-GEWISDBSyncAllowed {
+	$h = Test-GEWISDBHealth
+	return $h.healthy -and -not $h.sync_paused
+}
+Export-ModuleMember -Function Test-GEWISDBSyncAllowed
+
+<#
+	.Synopsis
+	Assert sync is allowed or exit
+#>
+function Assert-GEWISDBSyncAllowed {
+	if ((Test-GEWISDBSyncAllowed) -eq $False) {
+		Write-Error "Sync is paused or API is not healthy"
+		exit 1
+	}
+}
+Export-ModuleMember -Function Assert-GEWISDBSyncAllowed
 
 <#
 	.Synopsis
@@ -145,6 +169,9 @@ param(
     )
 	if ($apiToken -eq $null) {Connect-GEWISDB}
 	$Response = Invoke-GEWISDBRequest -endPoint ("/members/" + $membernumber)
+	# An empty response or a deleted user is still a succesful lookup
+	# if there is an error during query, the databsae is expected to throw a 5xx
+	# which will be caught and thrown by invoke-gewisdbrequest
     if ($null -eq $Response -or $Response.data.deleted -eq $True) {
         return $null
     }
