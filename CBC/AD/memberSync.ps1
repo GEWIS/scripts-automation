@@ -6,6 +6,7 @@ $results = ""
 
 $memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
 
+Assert-GEWISDBSyncAllowed
 $usersDB = Get-GEWISDBActiveMembers -includeInactive $True
 
 # Force created accounts
@@ -65,6 +66,9 @@ If ($archiveOrgans.Count -gt 5) {
     Send-GEWISMail -message "Attempting to delete more than 5 organs, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
     exit
 }
+
+# We check once more if sync is allowed before creating organs
+Assert-GEWISDBSyncAllowed
 
 $newOrgans | Foreach-Object {
     If ($_ -eq $null) {return}
@@ -128,6 +132,9 @@ $accountsToDisable | Foreach-Object {
 }
 
 
+# Before creating user accounts, verify sync is still allowed
+Assert-GEWISDBSyncAllowed
+
 $newUsers | Foreach-Object {
     If ($_ -eq $null) {return}
 	$user = $usersDB | Where-Object lidnr -eq $_
@@ -139,7 +146,7 @@ $newUsers | Foreach-Object {
 
 # We retrieve details for users known in AD but not active (anymore)
 $usersDBManual = $manualCheckUsers | Foreach-Object {
-    Get-GEWISDBMember $_ -ErrorAction SilentlyContinue
+    Get-GEWISDBMember $_ -ErrorAction Stop
 }
 if ($usersDBManual.length -gt 0) {
     $usersDB += $usersDBManual
@@ -163,8 +170,8 @@ If ($toDelete.Count -gt 15) {
 $toDelete | ForEach-Object {
     $userAD = $usersAD | Where-Object SamAccountName -eq ("m" + $_)
 
-    $results += ("<li>Disabled $($userAD.SamAccountName): not in GEWISDB</li>")
-    $userAD | Set-ADUser -Enabled $False -Description "Disabled $(get-date -Format "yyyy-MM-dd"): not in GEWISDB / $($userAD.Description)"
+    $results += ("<li>AD-DB sync proposes to disable $($userAD.SamAccountName): not in GEWISDB</li>")
+    # $userAD | Set-ADUser -Enabled $False -Description "Disabled $(get-date -Format "yyyy-MM-dd"): not in GEWISDB / $($userAD.Description)"
     Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5295" -Confirm:$false -ErrorAction SilentlyContinue
     Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5293" -Confirm:$false -ErrorAction SilentlyContinue
     Remove-ADGroupMember -Members ($userAD.SID) -Identity "S-1-5-21-3053190190-970261712-1328217982-5294" -Confirm:$false -ErrorAction SilentlyContinue
