@@ -101,7 +101,7 @@ param(
 	try
 	{
 		$headers = @{Authorization = "Bearer $Script:apiToken"}
-		$Response = Invoke-RestMethod -Uri ($Script:url + $endPoint) -Headers $headers -MaximumRedirection 0 -ErrorAction Ignore -Body $data
+		$Response = Invoke-RestMethod -Uri ($Script:url + $endPoint) -Headers $headers -MaximumRedirection 0 -ErrorAction Stop -Body $data
 	} catch {
         $ResponseBody = ParseErrorForResponseBody($_)
 		if ($_.Exception.Response.StatusCode.value__ -eq 403) {
