@@ -1,6 +1,9 @@
 Import-Module ..\..\General\specialChars.psm1
+Import-Module ..\..\General\readEnv.psm1
 
 #Requires -Modules GEWIS-Mail
+
+Import-Environment ..\..\general.env
 
 # Global state
 $server = $null
@@ -170,7 +173,7 @@ function New-GEWISWGMemberAccount {
 		$message = $message -replace '#FIRSTNAME#', $firstName -replace '#USERNAME#', $username -replace '#PASSWORD#', $password
 
 		Send-GEWISMail -message $message -to "$firstName $lastName <$personalEmail>" -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
-		Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to "Computer Beheer Commissie <cbc@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
+		Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to $env:GEWIS_GEWISWG_COPY -mainTitle "Notification from CBC" -subject "Member account for $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email contains your GEWIS member account details" -footer "This message was sent to you because you have a member account in the GEWIS systems."
 	}
 }
 Export-ModuleMember -Function New-GEWISWGMemberAccount
@@ -210,7 +213,7 @@ function Expire-GEWISWGMemberAccount {
 
 		if ($personalEmail -ne $null) { Send-GEWISMail -message $message -to "$firstName $lastName <$personalEmail>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon. A copy has been sent to your personal email address due to the importance of this message." }
 		Send-GEWISMail -message $message -to "$firstName $lastName <$username@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
-		Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to "Computer Beheer Commissie <cbc@gewis.nl>" -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
+		Send-GEWISMail -message $message -replyTo "$firstName $lastName <$username@gewis.nl>" -to $env:GEWIS_GEWISWG_COPY -mainTitle "Notification from CBC" -subject "Member account expiry $firstName ($membershipNumber)" -heading "Your member account" -oneLiner "This email is to notify you about upcoming GEWIS member account expiry" -footer "This message was sent to you because you have a member account in the GEWIS systems which expires soon."
 	}
 }
 Export-ModuleMember -Function Expire-GEWISWGMemberAccount

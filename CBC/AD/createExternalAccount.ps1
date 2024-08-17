@@ -72,7 +72,7 @@ if ($existingAccount.UserPrincipalName -eq $nextUpn) {
     Write-Host "Password: $password"
     Write-Host "Expiry date: $(Get-Date -Format "yyyy-MM-dd" $expiry)"
     Write-Host "Name: $($existingAccount.Name)`n"
-    Write-Host "NOTE: By using this account you agree to the latest version of the ICT Policy of GEWIS. If you do not have a copy, you can request a copy from board@gewis.nl.`n"
+    Write-Host "NOTE: By using this account you agree to the latest version of the ICT Policy of GEWIS. If you do not have a copy, you can request a copy from the board.`n"
     Write-Host "To use this account, please change your password first through https://auth.gewis.nl."
     Write-Host "This account will be automatically disabled on $(Get-Date -Format "dddd dd MMMM yyyy" $expiry) and will not be renewed automatically. If you want to keep using the account after that, please let us know."
 

@@ -4,6 +4,9 @@ $results = ""
 #Requires -Modules GEWIS-Mail
 #Requires -Modules GEWISDB-PS
 
+Import-Module ..\..\General\readEnv.psm1
+Import-Environment ..\..\general.env
+
 $memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
 
 Assert-GEWISDBSyncAllowed
@@ -41,7 +44,7 @@ Write-Host "Manual check needed:" $manualCheckUsers
 
 If ($newUsers.Count -gt 50) {
     Write-Warning "Creating more than 50 users, not continuing"
-    Send-GEWISMail -message "Attempting to create more than 50 users, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    Send-GEWISMail -message "Attempting to create more than 50 users, assuming failure!" -to $env:GEWIS_SYNCFAILURE_TO -replyTo $env:GEWIS_SYNCFAILURE_REPLYTO -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
     exit
 }
 
@@ -57,13 +60,13 @@ Write-Host "Organs to archive:" $archiveOrgans.Count
 
 If ($newOrgans.Count -gt 10) {
     Write-Warning "Creating more than 10 organs, not continuing"
-    Send-GEWISMail -message "Attempting to create more than 10 organs, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    Send-GEWISMail -message "Attempting to create more than 10 organs, assuming failure!" -to $env:GEWIS_SYNCFAILURE_TO -replyTo $env:GEWIS_SYNCFAILURE_REPLYTO -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
     exit
 }
 
 If ($archiveOrgans.Count -gt 5) {
     Write-Warning "Deleting more than 5 organs, not continuing"
-    Send-GEWISMail -message "Attempting to delete more than 5 organs, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    Send-GEWISMail -message "Attempting to delete more than 5 organs, assuming failure!" -to $env:GEWIS_SYNCFAILURE_TO -replyTo $env:GEWIS_SYNCFAILURE_REPLYTO -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
     exit
 }
 
@@ -93,7 +96,7 @@ $accountsToRenew | Foreach-Object {
 $accountsToExpire = Get-ADUser -LDAPFilter "(&(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew accounts,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl))(!(memberOf:1.2.840.113556.1.4.1941:=CN=PRIV - Autorenew disabled,OU=Privileges,OU=Groups,DC=gewiswg,DC=gewis,DC=nl)))" -Properties AccountExpirationDate, LastLogonDate, employeeNumber, SamAccountName, whenCreated -SearchBase $memberOU | Where-Object AccountExpirationDate -gt (Get-Date).AddDays(7)
 If ($accountsToExpire.Count -gt 50) {
     Write-Warning "Deleting more than 50 users, not continuing"
-    Send-GEWISMail -message "Attempting to expire more than 50 users, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    Send-GEWISMail -message "Attempting to expire more than 50 users, assuming failure!" -to $env:GEWIS_SYNCFAILURE_TO -replyTo $env:GEWIS_SYNCFAILURE_REPLYTO -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
     exit
 }
 $accountsToExpire | Foreach-Object {
@@ -163,7 +166,7 @@ $toDelete = $notFoundinDB | Where-Object { $_ -notin $exceptionVeryOld }
 
 If ($toDelete.Count -gt 15) {
     Write-Warning "Deleting more than 15 members, not continuing"
-    Send-GEWISMail -message "Attempting to delete more than 15 members, assuming failure!" -to "cbc@gewis.nl" -replyTo "CBC AD-team <cbc-adteam@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
+    Send-GEWISMail -message "Attempting to delete more than 15 members, assuming failure!" -to $env:GEWIS_SYNCFAILURE_TO -replyTo $env:GEWIS_SYNCFAILURE_REPLYTO -mainTitle "Notification from CBC" -subject "AD Sync Error" -heading "AD Sync Error"
     exit
 }
 
@@ -307,5 +310,5 @@ Get-ADUser -Filter * -Properties AccountExpirationDate, LastLogonDate, employeeN
 
 if ($results -ne "") {
     $message = "<ul>$results</ul>"
-    Send-GEWISMail -message $message -to "cbc@gewis.nl" -replyTo "GEWIS Secretary <secr@gewis.nl>" -mainTitle "Notification from CBC" -subject "AD Sync Results" -heading "AD Sync Results"
+    Send-GEWISMail -message $message -to $env:GEWIS_SYNCSUCCESS_TO -replyTo $env:GEWIS_SYNCSUCCESS_REPLYTO -mainTitle "Notification from CBC" -subject "AD Sync Results" -heading "AD Sync Results"
 }

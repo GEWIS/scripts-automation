@@ -3,7 +3,11 @@
 # You probably think it is ugly, but at that point in time no better way to do this was found
 # 2022-01-08. Rink
 
+Import-Module ..\..\General\readEnv.psm1
+
 #Requires -Modules GEWIS-Mail
+
+Import-Environment ..\..\general.env
 
 # We pick one domain controller for the whole script
 $dom = Get-ADDomain
@@ -125,7 +129,7 @@ foreach ($user in $users) {
             Send-SimpleMail `
                 -message $message `
                 -replyTo "$($ADUser.Name) <$mail>" `
-                -to "Computer Beheer Commissie <cbcissues@gewis.nl>" `
+                -to $env:GEWIS_GEWISWG_COPY `
                 -mainTitle "Notification from CBC" `
                 -subject "Account permissions updated for $($ADUser.SamAccountName)" `
                 -heading "Updated account permissions" `

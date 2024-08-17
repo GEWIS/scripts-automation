@@ -4,7 +4,7 @@
 # Global state
 $server = "smtp.gewis.nl"
 $port = 465
-$from = '"Computer Beheer Commissie | GEWIS" <cbc@gewis.nl>'
+$from = $null
 $username = $null
 $password = $null
 $locale = New-Object System.Globalization.CultureInfo('en-GB')
@@ -17,7 +17,7 @@ $locale = New-Object System.Globalization.CultureInfo('en-GB')
 #>
 function Connect-GEWISMail {
 	param(
-		[Parameter()][string][AllowNull()] $from = $null,
+		[Parameter()][string][ValidateNotNullOrEmpty()] $from,
 		[Parameter()][string][AllowNull()] $username = $null,
 		[Parameter()][string][AllowNull()] $password = $null
 	)
