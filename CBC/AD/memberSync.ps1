@@ -5,7 +5,7 @@ $results = ""
 #Requires -Modules GEWISDB-PS
 
 Import-Module ..\..\General\readEnv.psm1
-Import-Environment ..\..\general.env
+Import-Environment ..\general.env
 
 $memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
 

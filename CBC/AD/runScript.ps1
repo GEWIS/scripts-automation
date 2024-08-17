@@ -12,7 +12,7 @@ Import-Module .\GEWISWG-AD.psm1 -DisableNameChecking
 Import-Module ..\..\ABC-Database\GEWISDB-PS.psm1
 Import-Module ..\..\General\readEnv.psm1
 
-Import-Environment ..\..\addb.env
+Import-Environment ..\addb.env
 
 Connect-GEWISDB -apiToken $env:GEWIS_GEWISDB_APITOKEN
 Connect-GEWISMail -username $env:GEWIS_ADDBMAIL_USERNAME -from $env:GEWIS_ADDBMAIL_EMAIL -password $env:GEWIS_ADDBMAIL_PASSWORD

@@ -7,7 +7,7 @@ Import-Module ..\..\General\readEnv.psm1
 
 #Requires -Modules GEWIS-Mail
 
-Import-Environment ..\..\general.env
+Import-Environment ..\general.env
 
 # We pick one domain controller for the whole script
 $dom = Get-ADDomain

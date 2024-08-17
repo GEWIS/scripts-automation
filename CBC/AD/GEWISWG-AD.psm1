@@ -3,7 +3,7 @@ Import-Module ..\..\General\readEnv.psm1
 
 #Requires -Modules GEWIS-Mail
 
-Import-Environment ..\..\general.env
+Import-Environment ..\general.env
 
 # Global state
 $server = $null
