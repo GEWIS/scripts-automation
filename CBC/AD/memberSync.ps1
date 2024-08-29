@@ -308,6 +308,20 @@ $usersDB | Foreach-Object {
 # Fix not having account expiry dates
 Get-ADUser -Filter * -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -eq $null | Set-ADUser -AccountExpirationDate (Get-Date)
 
+# Compute which accounts were used in the past X days (which may be relevant for displaying global address lists etc.)
+$xdays = (Get-Date -Hour 0 -Minute 0 -Second 0).AddDays(-1 * $env:GEWIS_ACTIVEACCOUNT_THRESHOLD).ToFileTime()
+$xdaysquery = "(&(objectClass=user)(!(objectClass=computer))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(lastLogonTimestamp>=$xdays))"
+Set-ADGroupMembersFromLdapQuery -ldapQuery $xdaysquery -targetGroupSID $env:GEWIS_ACTIVEACCOUNT_SID -executeAdditions -executeDeletions
+
+$domaincontactsquery = "(objectClass=contact)"
+Set-ADGroupMembersFromLdapQuery -ldapQuery $domaincontactsquery -searchBase $env:GEWIS_OU_CONTACTS -targetGroupSID $env:GEWIS_MAILDOMAINCONTACTS_SID -executeAdditions -executeDeletions
+
+# If you have a mailcow mailbox, but are not in the recently active group, you should be hidden from the GAL
+$galGroupHide = Get-ADGroup $env:GEWIS_MAILGALHIDE_SID
+$galGroupShow = Get-ADGroup $env:GEWIS_MAILGALSHOW_SID
+$hideGalQuery = "(&(mail=*)(memberOf:1.2.840.113556.1.4.1941:=$($galGroupShow.DistinguishedName))(!(memberOf:1.2.840.113556.1.4.1941:=$($galGroupHide.DistinguishedName)))(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+Set-ADGroupMembersFromLdapQuery -ldapQuery $hideGalQuery -targetGroupSID $env:GEWIS_MAILGALCOMPUTED_SID -executeAdditions -executeDeletions
+
 if ($results -ne "") {
     $message = "<ul>$results</ul>"
     Send-GEWISMail -message $message -to $env:GEWIS_SYNCSUCCESS_TO -replyTo $env:GEWIS_SYNCSUCCESS_REPLYTO -mainTitle "Notification from CBC" -subject "AD Sync Results" -heading "AD Sync Results"

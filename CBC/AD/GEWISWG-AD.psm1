@@ -7,6 +7,7 @@ Import-Environment ..\general.env
 
 # Global state
 $server = $null
+$rootDN = $null
 $organOU = "OU=Organs,OU=Groups,DC=gewiswg,DC=gewis,DC=nl"
 $memberOU = "OU=Member accounts,DC=gewiswg,DC=gewis,DC=nl"
 $groupWithAllOrgans = "S-1-5-21-3053190190-970261712-1328217982-4970"
@@ -18,7 +19,7 @@ $runDate = Get-Date -Format $dateFormat
 
 <#
 	.Synopsis
-	Connects to the GEWISDB Api
+	Connects to the GEWISWG DC
 
 	.Parameter domain
 	Optionally, the domain you want to connect to. To obtain a maximum sync state, the module only uses the primary domain controller
@@ -31,6 +32,7 @@ function Connect-GEWISWG {
 	if ($domain -eq $null -or $domain -eq "") {$dom = Get-ADDomain}
 	else {$dom = Get-ADDomain -Identity $domain}
 	$Script:server = $dom.PDCEmulator
+	$Script:rootDN = $dom.DistinguishedName
 }
 Export-ModuleMember -Function Connect-GEWISWG
 
@@ -263,3 +265,34 @@ function Remove-GEWISWGKeyholder {
 	Remove-ADGroupMember -Confirm:$false -Members $member -Server $server -Identity $groupKeyholders
 }
 Export-ModuleMember -Function Remove-GEWISWGKeyholder
+
+<#
+	.Synopsis
+	Update the membership of a given group with the result of a given LDAP query
+#>
+function Set-ADGroupMembersFromLdapQuery {
+	param(
+		[Parameter()][string][ValidateNotNullOrEmpty()] $targetGroupSID,
+		[Parameter()][string][ValidateNotNullOrEmpty()] $ldapQuery,
+		[Parameter()][string][AllowNull()] $searchBase = $null,
+		[switch] $executeAdditions = $False,
+		[switch] $executeDeletions = $False
+	)
+
+	if ($server -eq $null) {Connect-GEWISWG}
+	if ($searchBase.Length -eq 0) { $searchBase = $Script:rootDN  }
+
+	$newMembers = (Get-ADObject -ldapFilter $ldapQuery -searchBase $searchBase -Server $server).DistinguishedName
+	$currentMembers = Get-ADGroup -Identity $targetGroupSID -Server $server -Properties member | select-object -ExpandProperty member
+	$comparison = Compare-Object -ReferenceObject @($currentMembers | Select-Object) -DifferenceObject @($newMembers | Select-Object)
+
+	$add = ($comparison | Where-Object -Property SideIndicator -eq "=>") | Foreach-Object { "$($_.InputObject)" }
+	#if ($add.Count -gt 0 -and $executeAdditions) { Add-ADGroupMember -Identity $env:GEWIS_ACTIVEACCOUNT_SID -Server $server -Members $add }
+	if ($add.Count -gt 0 -and $executeAdditions) { Set-ADGroup -Identity $targetGroupSID -Server $server -Add @{Member=$add} }
+
+	$remove = ($comparison | Where-Object -Property SideIndicator -eq "<=") | Foreach-Object { "$($_.InputObject)" }
+	#if ($remove.Count -gt 0 -and $executeDeletions) { Remove-ADGroupMember -Identity $targetGroupSID -Members $remove -Server $server -Confirm:$False }
+	if ($remove.Count -gt 0 -and $executeDeletions) { Set-ADGroup -Identity $targetGroupSID -Server $server -Remove @{Member=$remove} }
+
+}
+Export-ModuleMember -Function Set-ADGroupMembersFromLdapQuery
