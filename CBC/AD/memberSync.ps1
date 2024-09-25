@@ -308,15 +308,17 @@ $usersDB | Foreach-Object {
 # Fix not having account expiry dates
 Get-ADUser -Filter * -Properties AccountExpirationDate, LastLogonDate, employeeNumber -SearchBase $memberOU | Where-Object AccountExpirationDate -eq $null | Set-ADUser -AccountExpirationDate (Get-Date)
 
-# Compute which accounts were used in the past X days (which may be relevant for displaying global address lists etc.)
+## Dynamic group memberships (https://wiki.gewis.nl/link/879#bkmrk-dynamic-group-member)
+# Compute which accounts were used in the past X days (this is used in AD for inclusion of certain permissions and the GAL)
 $xdays = (Get-Date -Hour 0 -Minute 0 -Second 0).AddDays(-1 * $env:GEWIS_ACTIVEACCOUNT_THRESHOLD).ToFileTime()
 $xdaysquery = "(&(objectClass=user)(!(objectClass=computer))(!(userAccountControl:1.2.840.113556.1.4.803:=2))(lastLogonTimestamp>=$xdays))"
 Set-ADGroupMembersFromLdapQuery -ldapQuery $xdaysquery -targetGroupSID $env:GEWIS_ACTIVEACCOUNT_SID -executeAdditions -executeDeletions
 
+# Compute a group which has all contacts in the contacts OU (this is used in AD for the GAL)
 $domaincontactsquery = "(objectClass=contact)"
 Set-ADGroupMembersFromLdapQuery -ldapQuery $domaincontactsquery -searchBase $env:GEWIS_OU_CONTACTS -targetGroupSID $env:GEWIS_MAILDOMAINCONTACTS_SID -executeAdditions -executeDeletions
 
-# If you have a mailcow mailbox, but are not in the recently active group, you should be hidden from the GAL
+# Compute the membership of the global address list (as all people who are included, but not explicitly excluded; the query should not be changed here, but the inclusions updated in AD)
 $galGroupHide = Get-ADGroup $env:GEWIS_MAILGALHIDE_SID
 $galGroupShow = Get-ADGroup $env:GEWIS_MAILGALSHOW_SID
 $hideGalQuery = "(&(mail=*)(memberOf:1.2.840.113556.1.4.1941:=$($galGroupShow.DistinguishedName))(!(memberOf:1.2.840.113556.1.4.1941:=$($galGroupHide.DistinguishedName)))(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
