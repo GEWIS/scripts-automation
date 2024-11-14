@@ -4,7 +4,7 @@
 $date = get-date -Format "yyyy-MM-dd\\HH.mm"
 Start-Transcript -Path "C:\GEWISscripts\output\$date - addb.txt" -Append
 
-Install-Module -Name Mailozaurr -Scope CurrentUser -AllowClobber
+Install-Module -Name Mailozaurr -Scope CurrentUser -AllowClobber -Force
 
 Get-Module GEWIS* | Remove-Module
 Import-Module ..\Mail\GEWIS-Mail.psm1
